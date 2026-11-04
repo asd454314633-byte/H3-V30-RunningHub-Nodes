@@ -6,10 +6,7 @@ Pin views and their HostBuffer are overlapping measurements, never additive.
 
 import folder_paths
 import ctypes
-try:  # CANDIDATE PATCH A1 (2026-11-03): Windows-only symbols guarded; on Windows behavior identical
-    from ctypes import wintypes
-except (ImportError, ValueError):  # non-Windows: import must succeed; A3 skips _windows_memory() entirely (see snapshot())
-    wintypes = None
+from ctypes import wintypes
 import datetime
 import json
 import logging
@@ -194,30 +191,9 @@ def snapshot():
         result.update(_host_and_pins(model, errors))
         vbar = _read(lambda: getattr(model, "dynamic_vbars", {}).get(patcher.load_device), errors, "dynamic_vbar lookup")
         result["TE_DYNAMIC_VRAM_BYTES"] = _read(vbar.loaded_size, errors, "vbar.loaded_size") if vbar not in (None, NA) else 0 if vbar is None else NA
-    if os.name == "nt":
-        # Windows: original behavior preserved unchanged (call + error recording).
-        memory = _read(_windows_memory, errors, "Windows memory snapshot")
-        if isinstance(memory, dict):
-            result.update(memory)
-    else:
-        # CANDIDATE PATCH A3 (2026-11-03): Windows kernel32/psapi telemetry is not
-        # applicable on this platform. Do not call _windows_memory and do NOT add a
-        # measurement error: record the OS-level telemetry explicitly as
-        # NOT_AVAILABLE with a platform marker (never a valid zero value). All TE
-        # core residency validations keep their original fail-closed behavior:
-        # TE_PIN_ALLOCATED_BYTES / TE_PIN_REGISTERED_BYTES / TE_HOSTBUFFER_BYTES /
-        # TE_LOADED_SIZE_BYTES numeric validity, pin cap, model/patcher identity,
-        # unique status selection, post-unload residual threshold, and every other
-        # read error. MEASUREMENT_ERRORS is not cleared and exceptions are not
-        # swallowed.
-        result["OS_MEMORY_TELEMETRY"] = "UNSUPPORTED_PLATFORM"
-        for _name in (
-            "PROCESS_RSS_BYTES", "PROCESS_VMS_BYTES", "PROCESS_PRIVATE_BYTES",
-            "SYSTEM_RAM_USED_BYTES", "SYSTEM_RAM_AVAILABLE_BYTES",
-            "SYSTEM_COMMIT_USED_BYTES", "SYSTEM_COMMIT_LIMIT_BYTES",
-            "SYSTEM_COMMIT_PERCENT",
-        ):
-            result[_name] = NA
+    memory = _read(_windows_memory, errors, "Windows memory snapshot")
+    if isinstance(memory, dict):
+        result.update(memory)
     # Do not initialize CUDA just to measure it. During normal H3 encode it is initialized.
     if torch.cuda.is_initialized():
         cuda_memory = _read(torch.cuda.mem_get_info, errors, "CUDA global memory snapshot")

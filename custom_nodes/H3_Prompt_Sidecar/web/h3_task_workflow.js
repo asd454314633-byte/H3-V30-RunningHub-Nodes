@@ -23,6 +23,24 @@ export function applySegmentSettingsToPrompt(output,value={}, {longSong=false}={
  return {node_id:String(nodeId),settings};
 }
 
+// 2026-11-01 用户授权：本段参数覆写不再阻断执行，改为仅提示后继续。
+// 找不到唯一活动 H3 条件节点时返回 applied:false + warning，由调用方降级为画布参数继续；
+// 真实参数非法（分辨率不是32倍数、帧数不在 17k+5 网格）仍由 normalizeSegmentSettings 抛出。
+export function applySegmentSettingsSafe(output,value={},options={}){
+ try{return {...applySegmentSettingsToPrompt(output,value,options),applied:true,warning:null}}
+ catch(error){
+  const settings=normalizeSegmentSettings(value);
+  const routes={MiniMaxH3ReferenceToVideo:['136','1106'],MiniMaxH3ImageToVideo:['644']};
+  const active=Object.entries(output||{}).filter(([,node])=>Object.hasOwn(routes,node?.class_type));
+  const detail=active.length
+   ?`画布有 ${active.length} 个活动 H3 条件节点（${active.map(([id,node])=>`${id}:${node.class_type}`).join('、')}），参数覆写要求唯一`
+   :'画布没有活动的 H3 条件节点';
+  return {node_id:null,settings:{width:null,height:null,length:null},applied:false,requested:settings,
+          active_nodes:active.map(([id,node])=>[String(id),node.class_type]),
+          warning:`${detail}（原判定：${String(error?.message||error)}）`};
+ }
+}
+
 export function bindTaskWorkflow(workflow,{nodeId,widgetIndex,widgetName,text,context,segmentSettings}) {
  const result=structuredClone(workflow);
  const node=result.nodes?.find(n=>String(n.id)===String(nodeId));

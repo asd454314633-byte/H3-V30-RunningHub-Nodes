@@ -19,6 +19,26 @@ def sha(path):
     with open(path, 'rb') as f:
         return hashlib.file_digest(f, 'sha256').hexdigest()
 
+def receipt_video_path(receipt):
+    """Resolve the accepted output ref, retaining compatibility with old paths."""
+    output = Path(folder_paths.get_output_directory()).resolve()
+    ref = receipt.get('video_output_ref')
+    if ref:
+        if not isinstance(ref, dict) or ref.get('type', 'output') != 'output':
+            raise ValueError('前段视频引用类型无效')
+        filename = ref.get('filename')
+        if not isinstance(filename, str) or not filename or Path(filename).name != filename or '/' in filename or '\\' in filename:
+            raise ValueError('前段视频文件名无效')
+        path = (output / ref.get('subfolder', '') / filename).resolve()
+    else:
+        value = receipt.get('video_path')
+        if not isinstance(value, str) or not value:
+            raise ValueError('前段成功回执缺少视频引用')
+        path = Path(value).resolve()
+    if not path.is_relative_to(output) or not path.is_file():
+        raise ValueError('前段视频不在输出目录或不存在')
+    return path
+
 def interval(frames, previous_kept, prefix, start, fps=24, external_first=False,
              output_discard_frames=0):
     if fps != 24 or not math.isfinite(start) or start < 0:
@@ -138,7 +158,7 @@ class H3LongSongSegment:
                 if prior['source_sha256']!=digest or prior['song_start']!=start_seconds:
                     raise ValueError('歌曲或起始时间已变化，请开启新的六段项目')
                 if prior.get('cross_group')!=cross:raise ValueError('跨组前驱绑定与本组历史不匹配')
-                video=Path(receipt['video_path'])
+                video=receipt_video_path(receipt)
                 if sha(video).upper()!=receipt['video_sha256'].upper():
                     raise ValueError('前段视频SHA不匹配')
                 actual=probe_frames(video)

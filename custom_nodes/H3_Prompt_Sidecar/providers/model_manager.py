@@ -56,20 +56,14 @@ class H3DirectorModelManager:
         handle = None
         try:
             if not nested:
+                import msvcrt
                 handle = (self.root / 'director_model.lock').open('a+b')
+                handle.seek(0)
+                if not handle.read(1):
+                    handle.write(b'0'); handle.flush()
+                handle.seek(0)
                 try:
-                    # On Windows a byte locked by another owner cannot even be read,
-                    # so the first-byte init must sit inside the busy handler.
-                    handle.seek(0)
-                    if not handle.read(1):
-                        handle.write(b'0'); handle.flush()
-                    handle.seek(0)
-                    if os.name == 'nt':
-                        import msvcrt
-                        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-                    else:
-                        import fcntl
-                        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
                 except OSError as exc:
                     handle.close(); handle = None
                     raise ProviderError('DIRECTOR_MODEL_BUSY: another owner is active') from exc
@@ -78,16 +72,8 @@ class H3DirectorModelManager:
         finally:
             self.local.depth = nested
             if handle:
-                try:
-                    if os.name == 'nt':
-                        import msvcrt
-                        handle.seek(0)
-                        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-                    else:
-                        import fcntl
-                        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-                finally:
-                    handle.close()
+                handle.seek(0); msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                handle.close()
             self.lock.release()
 
     @staticmethod
@@ -108,7 +94,7 @@ class H3DirectorModelManager:
             key = next((k for k, c in catalog.items() if c['provider'] == 'local_llamacpp'
                         and model and normalized(c['model']) == normalized(model)
                         and alias == c['alias'] and port == str(c['port'])
-                        and normalized(process.exe()) == normalized(Path(c['runtime'])/('llama-server.exe' if os.name == 'nt' else 'llama-server'))), None)
+                        and normalized(process.exe()) == normalized(Path(c['runtime'])/'llama-server.exe')), None)
             if key is None:
                 return None
             return {'pid':process.pid, 'create_time':process.create_time(), 'parent_pid':process.ppid(),
@@ -131,7 +117,7 @@ class H3DirectorModelManager:
         pid = next(iter(listeners), None)
         owned = []
         for process in psutil.process_iter(['name']):
-            if (process.info['name'] or '').lower() == ('llama-server.exe' if os.name == 'nt' else 'llama-server'):
+            if (process.info['name'] or '').lower() == 'llama-server.exe':
                 fingerprint = self._fingerprint(process)
                 if fingerprint:
                     owned.append(fingerprint)
@@ -201,7 +187,7 @@ class H3DirectorModelManager:
         # llama-server handles CTRL_BREAK in its own process group; adopted legacy
         # processes may not have a group. Never image-wide kill or kill children.
         try:
-            os.kill(process.pid, __import__('signal').CTRL_BREAK_EVENT if os.name == 'nt' else __import__('signal').SIGTERM)
+            os.kill(process.pid, __import__('signal').CTRL_BREAK_EVENT)
             process.wait(timeout=10)
         except (OSError, psutil.TimeoutExpired):
             if process.is_running():
@@ -231,10 +217,9 @@ class H3DirectorModelManager:
         env['PATH'] = target.config['runtime'] + os.pathsep + env.get('PATH', '')
         # Runtime log is additional to Director console; only this owner can launch.
         with Path(target.config['log_path']).open('a', encoding='utf-8', buffering=1) as log:
-            creation = ({'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP}
-                        if os.name == 'nt' else {'start_new_session': True})
             child = subprocess.Popen(command, cwd=target.config['runtime'], env=env,
-                                     stdout=log, stderr=subprocess.STDOUT, **creation)
+                                     stdout=log, stderr=subprocess.STDOUT,
+                                     creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
         self.spawn_count += 1
         deadline = time.monotonic()+120
         while time.monotonic() < deadline and child.poll() is None:

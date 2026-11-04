@@ -23,7 +23,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
   const receipts=draftStorage.read('chain-receipts')||structuredClone(savedState?.chain_receipts)||{};
   function persistReceipts(){updateTarget();draftStorage.write('chain-receipts',receipts);root.dispatchEvent(new Event('sixchange'))}
   executionState=ensureSixExecutionState(executionState);videoRefs=Array.isArray(videoRefs)?videoRefs:[];
-  root.innerHTML='<section class="h3-six h3-six-t003"><header class="six-header"><h2>H3 六段导演台</h2><label>项目 <input class="six-project" aria-label="存档项目" maxlength="64"></label><span class="six-merge-badge">合并：等待 0/6 段</span></header><div class="six-config-one"><label>提示词助手模型 <select class="six-model" aria-label="六段导演模型"></select></label><button class="six-model-start" title="由现有模型管理器预热">预热模型</button><small class="six-model-label"></small></div><div class="six-common six-config-two"><label>连续 <select class="six-continuous" aria-label="连续生成"><option value="off">关</option><option value="on">开</option></select></label><label>起始段 <select class="six-start" aria-label="起始段"><option value="0">S1</option><option value="1">S2</option><option value="2">S3</option><option value="3">S4</option><option value="4">S5</option><option value="5">S6</option></select></label><label>起始方式 <select class="six-inheritance" aria-label="起始方式"><option value="resume">接上一段</option><option value="independent">独立开始</option></select></label></div><div class="six-story"><label>剧情要求<textarea class="six-input six-goal" aria-label="六段剧情要求" placeholder="设计六段连续剧情"></textarea></label><button class="six-generate">生成六段剧情</button><label>全局设定 / Picture 与 Audio 职责<textarea class="six-input six-settings" aria-label="六段全局设定"></textarea></label></div><small class="six-cloud-warning" role="status" hidden>将把提示词与参考发送到外部服务</small><div class="six-status" role="status"></div><div class="six-prompts"></div><footer class="six-footer"><div class="six-footer-actions"><button class="six-run-all">▶ 连续生成六段</button><span>上一段成功后才提交下一段，失败即停；六段完成后自动合并。</span><a class="six-latest-output" target="_blank" rel="noopener">最新输出：暂无</a><button class="six-stop" disabled hidden>停止连续生成</button><button class="six-memory-confirm" disabled>确认剧情记忆</button></div><div class="six-merge-host"></div></footer></section>';
+  root.innerHTML='<section class="h3-six h3-six-t003"><header class="six-header"><h2>H3 六段导演台</h2><label>项目 <input class="six-project" aria-label="存档项目" maxlength="64"></label><span class="six-merge-badge">合并：等待 0/6 段</span></header><div class="six-config-one"><label>提示词助手模型 <select class="six-model" aria-label="六段导演模型"></select></label><button class="six-model-start" title="由现有模型管理器预热">预热模型</button><small class="six-model-label"></small></div><div class="six-common six-config-two"><label>连续 <select class="six-continuous" aria-label="连续生成"><option value="off">关</option><option value="on">开</option></select></label><label>起始段 <select class="six-start" aria-label="起始段"><option value="0">S1</option><option value="1">S2</option><option value="2">S3</option><option value="3">S4</option><option value="4">S5</option><option value="5">S6</option></select></label><label>起始方式 <select class="six-inheritance" aria-label="起始方式"><option value="resume">接上一段</option><option value="independent">独立开始</option></select></label></div><div class="six-story"><label>剧情要求<textarea class="six-input six-goal" aria-label="六段剧情要求" placeholder="设计六段连续剧情"></textarea></label><button class="six-generate">生成六段剧情</button><label>全局设定 / Picture 与 Audio 职责<textarea class="six-input six-settings" aria-label="六段全局设定"></textarea></label></div><small class="six-cloud-warning" role="status" hidden>将把提示词与参考发送到外部服务</small><div class="six-status" role="status"></div><div class="six-prompts"></div><footer class="six-footer"><div class="six-footer-actions"><button class="six-run-all">▶ 连续生成六段</button><span>从所选段开始，接续上一段；成功后提交下一段，失败即停。需要时手动合并当前视频。</span><a class="six-latest-output" target="_blank" rel="noopener">最新输出：暂无</a><button class="six-stop" disabled hidden>停止连续生成</button><button class="six-memory-confirm" disabled>确认剧情记忆</button></div><div class="six-merge-host"></div></footer></section>';
   const style=document.createElement('style');style.textContent='.h3-six .six-video-wrap{display:flex;flex-direction:column;flex:1;min-height:54px;min-width:0;margin-top:4px;overflow:hidden}.h3-six .six-video{width:100%;height:100%;min-height:44px;flex:1;object-fit:contain;background:#080c12;border-radius:6px}.h3-six .six-video-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.h3-six .six-prompt{flex:1;min-height:44px}.h3-six .six-prompts{min-height:0}';root.append(style);
   const parameterStyle=document.createElement('style');parameterStyle.textContent='.h3-six .six-segment-parameters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0}.h3-six .six-segment-parameters label{font-size:11px;line-height:1.35}.h3-six .six-segment-parameters input{box-sizing:border-box;width:100%;min-width:0;background:#10151d;color:#fff;border:1px solid #527281;border-radius:4px;padding:3px}.h3-six .six-segment-parameters input::-webkit-inner-spin-button{margin:0}';root.append(parameterStyle);
   const find=s=>root.querySelector(s),settings=find('.six-settings'),goal=find('.six-goal'),model=find('.six-model'),message=find('.six-status'),cloudWarning=find('.six-cloud-warning');
@@ -34,7 +34,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
   function chainEvent(type,detail={}){const event={type,at:Date.now(),...detail};if(['FAILED','STOPPED','COMPLETE','STOP_REQUESTED','RECOVERY_REQUIRED'].includes(type))chain.state=type;chain.trace.push(event);root.dispatchEvent(new CustomEvent('sixchain',{detail:event}));globalThis.dispatchEvent?.(new CustomEvent('h3-sixchain-state',{detail:event}))}
   const localSegmentSettings=savedState?[]:(draftStorage.read('segment-settings')||[]);
   const continuous=find('.six-continuous'),start=find('.six-start'),inheritance=find('.six-inheritance'),project=find('.six-project');
-  continuous.value=executionState.continuous===true?'on':'off';start.value=String(executionState.start_index||0);inheritance.value=executionState.start_mode||'resume';project.value=executionState.project_id||'H3_SIX_V288';
+  continuous.value='on';start.value=String(executionState.start_index||0);inheritance.value='resume';project.value=executionState.project_id||'H3_SIX_V288';
   let runtimeBinding=executionState.runtime_project_id?{logical:project.value.trim(),physical:executionState.runtime_project_id}:null;
   const runtimeProject=()=>runtimeBinding?.logical===project.value.trim()?runtimeBinding.physical:project.value.trim();
   function setRuntimeProject(value){if(!/^[\p{L}\p{N}_-]{1,64}$/u.test(value))throw Error('无效的内部链版本');runtimeBinding={logical:project.value.trim(),physical:value};confirmedTarget=value;executionChanged()}
@@ -53,8 +53,10 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
     targetLabel.title=text;targetLabel.style.color=mismatch?'#f3c979':'';targetLabel.dataset.state=mismatch?'warning':'normal';
   }
   for(const element of [project,continuous,inheritance])for(const event of ['change','input'])element.addEventListener(event,updateTarget);
+  for(const el of [continuous,inheritance])el.closest('label').style.display='none';
+  const liveSegment=document.createElement('span');liveSegment.className='six-current-segment';liveSegment.setAttribute('role','status');liveSegment.textContent='当前执行：无';start.closest('label').after(liveSegment);
   updateTarget();
-  const executionOptions=(index,first=index)=>({continuous:continuous.value==='on',project_id:runtimeProject(),independent:continuous.value!=='on'||inheritance.value==='independent'&&index===first,start_index:first,start_mode:inheritance.value,segment_settings:segmentSettingsAt(index),segment_settings_all:cards.map((_,i)=>segmentSettingsAt(i))});
+  const executionOptions=(index,first=index)=>({continuous:true,project_id:runtimeProject(),independent:false,start_index:0,start_mode:'resume',segment_settings:segmentSettingsAt(index),segment_settings_all:cards.map((_,i)=>segmentSettingsAt(i))});
   const executionSnapshot=()=>({continuous:continuous.value==='on',start_index:Number(start.value),start_mode:inheritance.value,project_id:project.value,runtime_project_id:runtimeProject()});
   function executionChanged(){updateTarget();root.dispatchEvent(new Event('sixchange'));find('.six-run-all').textContent='▶ 连续生成六段';};
   for(const element of [continuous,start,inheritance,project])element.addEventListener('change',executionChanged);
@@ -67,6 +69,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
     return '';
   }
   function controls(){
+    if(!inBatch){const active=[...new Set([...activeSegments,...queuedSegments])].sort((a,b)=>a-b);liveSegment.textContent=active.length?'当前任务：'+active.map(i=>'S'+(i+1)).join('、'):'当前任务：无';}
     root.querySelectorAll('textarea,input,select,.six-use').forEach(e=>e.disabled=false);
     // The execute button stays clickable on purpose: a disabled button fires no
     // event at all in Chrome, so a stale selection after refresh looked like a
@@ -150,7 +153,6 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
       const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;margin-top:10px';
       const addAction=(label,apply,notice)=>{const button=document.createElement('button');button.type='button';button.textContent=label;button.style.cssText='padding:5px 10px;border:1px solid #e89aa4;border-radius:5px;background:#5b2b34;color:#fff;cursor:pointer';button.onclick=()=>{apply();executionChanged();message.textContent=notice;delete message.dataset.state;operationToast.style.display='none'};actions.append(button)};
       addAction('改为从 S1 开始',()=>{start.value='0'},'起始段已改为 S1；请再次点击连续生成');
-      addAction('改为新起点',()=>{inheritance.value='independent'},'起始方式已改为新起点；请再次点击连续生成');
       operationToast.append(actions);
     }
     operationToast.style.display='block';operationToastTimer=setTimeout(()=>{if(operationToast)operationToast.style.display='none'},6000);
@@ -192,13 +194,17 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
   async function runSegment(index,text=cards[index].area.value,options=executionOptions(index)){
     if(!execute)throw Error('请从当前实例控制台的“六段提示词”入口打开本页');
     if(!text.trim())throw Error(`第${index+1}段Prompt为空`);
+    if(text!==cards[index].area.value)throw Error(`第${index+1}段提示词与所选卡片不一致，未提交`);
     if(selected!==index&&!options.direct)throw Error('请先使用本段');
     confirmWriteTarget(options.project_id);
     const card=cards[index],sequence=card.requestSequence=(card.requestSequence||0)+1;let counted=false;
     try{
       let fingerprint=fingerprintSegment?await fingerprintSegment(index,text,options):null;
       const previous=receipts[index];let result=null;
-      if(previous?.status!=='STALE'&&previous?.prompt_id&&previous.project_id===options.project_id&&previous.fingerprint!==fingerprint&&(options.independent===true||index===0)&&!canForkSegment()){
+      if(previous?.project_id===options.project_id&&['PREPARING','SUBMITTED','PENDING'].includes(previous.status)&&!previous.prompt_id)throw Error('本段已有身份未确认的尝试，请先核实任务状态');
+      // 2026-11-01 user rule: 重新起画(独立开始/新链版本)只在“起始方式=独立开始”时生效；
+      // 接上一段(默认)时第1段重跑一律原地取代(归档旧段)，不再自动 fork 新组。
+      if(previous?.status!=='STALE'&&previous?.prompt_id&&previous.project_id===options.project_id&&previous.fingerprint!==fingerprint&&options.independent===true&&!canForkSegment()){
         // An explicit independent run owns new storage. Preserve every old
         // accepted segment rather than blocking normal editing or overwriting it.
         const isolated=options.project_id.slice(0,39)+'_EDIT_'+crypto.randomUUID().replaceAll('-','').slice(0,16);
@@ -220,15 +226,19 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
       }
       if(previous?.status!=='STALE'&&previous?.prompt_id&&previous.project_id===options.project_id&&previous.fingerprint===fingerprint&&recoverSegment){
         const recovered=await recoverSegment(previous,index,options);
-        if(recovered.state==='ACCEPTED'&&previous.status==='ACCEPTED'){
+        if(recovered.state==='ACCEPTED'){
           // 2026-10-25: the user already saw this take finish and asked again -> reroll
           // (视频抽卡). Archive the previous take (copy only); videos are never overwritten.
           const archived=await archiveSegment(options.project_id,index);
           const seedFixed=globalThis.app?.graph?.getNodeById?.(142)?.widgets?.[1]?.value==='fixed';
-          chainEvent('REROLL',{segment:index+1,old_prompt_id:previous.prompt_id,archive:archived.path||null});
+          chainEvent('REROLL',{segment:index+1,old_prompt_id:recovered.result?.prompt_id||previous.prompt_id,archive:archived.path||null});
           message.textContent=`第${index+1}段重新生成（抽卡）：上一版已归档保留${archived.archived?'（'+archived.path+'）':''}，旧视频不覆盖${seedFixed?'；固定种子跨进程也可能产生差异':''}`;
         }
-        else if(recovered.state==='ACCEPTED'){result=recovered.result;chainEvent('REUSED_ACCEPTED',{segment:index+1,prompt_id:previous.prompt_id});const reusedPrompt=result.prompt_id||previous.prompt_id;message.textContent=`第${index+1}段已有验证成功的回执（prompt ${String(reusedPrompt).slice(0,8)}），未重复提交、未生成新任务${result.reconciled_from_ledger?'（本地过期尝试已和解到该成功回执）':''}；如需重新生成本段，请修改本段Prompt或更换“存档项目”名后再次执行`}
+        else if(recovered.state==='SUPERSEDED'){
+          const archived=await archiveSegment(options.project_id,index);
+          chainEvent('REROLL',{segment:index+1,old_prompt_id:recovered.result.prompt_id,archive:archived.path||null});
+          message.textContent=`第${index+1}段旧本地回执已更新；当前成功段已归档，准备重新生成`;
+        }
         else if(recovered.state==='FAILED')message.textContent=`第${index+1}段旧任务已确认失败（不在队列、无成功历史），按原输入安全重试`;
         else if(recovered.state!=='FAILED')throw Error('本段已有提交但结果尚未核实，保留断点；禁止重复提交');
       }
@@ -257,7 +267,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
     try{return await operation(async()=>{
       await saveForRun(index);
       const cross=globalThis.app?.graph?._nodes?.find(n=>n.type==='H3SixDirectorState')?.properties?.h3_cross_group?.enabled===true;
-      let options={...executionOptions(index,index),continuous:true,independent:index===0?!cross:false,start_mode:index===0&&!cross?'independent':'resume',direct:true};
+      let options={...executionOptions(index,index),continuous:true,independent:false,start_mode:'resume',direct:true};
       if(!/^[\p{L}\p{N}_-]{1,64}$/u.test(options.project_id))throw Error('存档项目只能使用1～64位字母、数字、下划线或短横线');
       const local=receipts[index];
       if(index===0&&!cross&&!canForkSegment()){
@@ -270,7 +280,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
           const recovered=await recoverSegment(local,0,options);
           if(recovered.state==='PENDING')throw Error('S1 旧任务仍在运行或排队');
         }
-        if(Object.keys(all).some(k=>/^\d+$/.test(k))||local?.prompt_id){
+        if(options.independent&&(Object.keys(all).some(k=>/^\d+$/.test(k))||local?.prompt_id)){
           const isolated=options.project_id.slice(0,39)+'_EDIT_'+crypto.randomUUID().replaceAll('-','').slice(0,16);
           options={...options,project_id:isolated};setRuntimeProject(isolated);
         }
@@ -284,7 +294,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
         if(durable?.status==='PENDING')throw Error('本段已有未确认的提交，禁止重复提交');
         if(durable?.status==='SUCCESS'){
           if(!durable.prompt_id)throw Error('本段成功回执缺少任务身份，已阻止提交');
-          if(options.independent||index===0){
+          if(options.independent){
             const isolated=options.project_id.slice(0,39)+'_EDIT_'+crypto.randomUUID().replaceAll('-','').slice(0,16);
             options={...options,project_id:isolated};setRuntimeProject(isolated);
           }else{
@@ -443,32 +453,27 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
   };
   async function startChain(){
     const first=Number(start.value);
+    if(!Number.isInteger(first)||first<0||first>=cards.length)throw Error('请选择有效起始段');
     if(!cards[first].area.value.trim())throw Error(`第${first+1}段Prompt为空`);
     // This explicit batch action enables continuous mode; single-segment execution keeps its selected mode.
     if(!project.value.trim())project.value='H3_SIX_V288';
     if(!/^[\p{L}\p{N}_-]{1,64}$/u.test(project.value.trim()))throw Error('存档项目只能使用1～64位字母、数字、下划线或短横线');
-    // Allocate independent storage before START, so automatic merge begins in
-    // the same project that will receive the first and all following segments.
-    const prior=receipts[first],firstOptions={...executionOptions(first,first),continuous:true,independent:inheritance.value==='independent'};
-    if((firstOptions.independent||first===0)&&!canForkSegment()&&prior?.prompt_id&&prior.project_id===firstOptions.project_id){
-      const currentFingerprint=fingerprintSegment?await fingerprintSegment(first,cards[first].area.value,firstOptions):null;
-      if(prior.fingerprint!==currentFingerprint){setRuntimeProject(firstOptions.project_id.slice(0,39)+'_EDIT_'+crypto.randomUUID().replaceAll('-','').slice(0,16));}
-    }
     if(inBatch)return;stopping=false;inBatch=true;chain.state='RUNNING';chain.trace=[];chainEvent('START',{first:first+1});controls();
-    const retainResumePoint=index=>{start.value=String(index);if(index>first)inheritance.value='resume';executionChanged();};
+    const retainResumePoint=index=>{start.value=String(index);inheritance.value='resume';executionChanged();};
     try{
       for(let i=first;i<6;i++){
         if(!cards[i].area.value.trim()){retainResumePoint(i);message.textContent=`第${i+1}段尚未填写，已保留前段结果`;return}
-        if(stopping){retainResumePoint(i);chainEvent('STOPPED',{nextSegment:i+1});message.textContent='连续生成已停止，可从所选起始段重新开始';return}
+        if(stopping){retainResumePoint(i);chainEvent('STOPPED',{nextSegment:i+1});message.textContent='连续生成已停止；可从所选段继续';return}
         chain.currentSegment=i+1;chain.state='RUNNING';
+        liveSegment.textContent=i===0?'当前执行：S1（重新起画）':`当前执行：S${i+1}（接 S${i} 尾部）`;
         message.textContent=`连续生成：正在执行第${i+1}/6段；上一段成功后自动推进`;select(i);
         find('.six-run-all').textContent=`连续生成中：第${i+1}/6段`;
         // Freeze only the segment about to submit; later edits remain live.
-        try{await runSegment(i,cards[i].area.value,{...executionOptions(i,first),continuous:true,independent:inheritance.value==='independent'&&i===first})}
+        try{await runSegment(i,cards[i].area.value,{...executionOptions(i,first),continuous:true,independent:false,start_mode:'resume'})}
         catch(error){retainResumePoint(i);chainEvent(stopping?'STOPPED':'FAILED',{segment:i+1,error:error.message});throw error}
       }
       chainEvent('COMPLETE');message.textContent=`第${first+1}～6段已自动连续完成；剧情记忆未自动确认`;
-    }finally{inBatch=false;chain.currentSegment=null;chain.pendingPromptId=null;find('.six-run-all').textContent='▶ 连续生成六段';chainEvent('SETTLED')}
+    }finally{inBatch=false;chain.currentSegment=null;chain.pendingPromptId=null;liveSegment.textContent='当前执行：无';find('.six-run-all').textContent='▶ 连续生成六段';chainEvent('SETTLED')}
   }
   find('.six-run-all').onclick=()=>operation(startChain);
   find('.six-memory-confirm').onclick=()=>operation(async()=>{if(!group)throw Error('请先生成一组六段草稿');await request('/director/groups/confirm',{group_id:group.id,prompts:cards.map(c=>c.area.value)});group.status='ACCEPTED';message.textContent='本组六段已手工确认；可输入“继续六段”生成下一组，不会提交视频'});
@@ -480,7 +485,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
   if(storyId){const layout=document.createElement('style');layout.textContent='.h3-prebake-six .six-prompts{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}';root.classList.add('h3-prebake-six');root.append(layout)}
 
   const taskDetails=document.createElement('div');taskDetails.className='six-task-details';taskDetails.id='six-task-details';taskDetails.setAttribute('popover','auto');taskDetails.append(progressBox);find('.six-run-all').after(message);find('.six-header').append(taskDetails);const taskButton=document.createElement('button');taskButton.type='button';taskButton.textContent='任务详情';taskButton.setAttribute('popovertarget',taskDetails.id);taskButton.style.anchorName='--h3-six-task-details-trigger';taskDetails.style.positionAnchor='--h3-six-task-details-trigger';anchorPopoverAtButton(taskDetails,taskButton);const footerTools=document.createElement('div');footerTools.className='six-footer-tools';footerTools.style.cssText='display:flex;gap:5px';footerTools.append(find('.six-memory-confirm'),taskButton);find('.six-footer-actions').append(footerTools);
-  const sheet=document.createElement('style');sheet.textContent=SIX_T003_CSS+'\n.h3-six.h3-six-t003{padding:4px;gap:2px;height:930px;max-height:930px}.h3-six-t003 .six-header{height:30px;min-height:30px;padding:1px 4px}.h3-six-t003 .six-header h2{font-size:16px}.h3-six-t003 .six-header button{font-size:10px;padding:2px}.h3-six-t003 .six-config-one,.h3-six-t003 .six-config-two{min-height:32px}.h3-six-t003 .six-story{height:32px;grid-template-columns:minmax(0,1fr) auto minmax(0,.7fr)}.h3-six-t003 .six-story>label{flex-direction:row;align-items:center;font-size:10px}.h3-six-t003 textarea.six-input{height:32px;min-height:32px}.h3-six-t003 .six-story button{height:32px}.h3-six-t003 .six-prompts{grid-template-rows:repeat(2,310px);gap:5px}.h3-six-t003 .six-card{padding:2px;gap:0}.h3-six-t003 .six-card-head{min-height:16px;height:16px}.h3-six-t003 .six-card-head h3{font-size:13px}.h3-six-t003 .six-video-wrap{width:100%;aspect-ratio:16/9;flex:none}.h3-six-t003 textarea.six-prompt{min-height:80px;height:80px;flex:1;font:13px/1.45 system-ui;padding:6px}.h3-six-t003 .six-card-foot{height:32px;min-height:32px}.h3-six-t003 .six-card-foot button{font-size:10px;padding:2px}.h3-six-t003 .six-footer{min-height:160px;height:160px;max-height:160px;flex:1}.h3-six-t003 .six-task-details{background:#202936;color:#edf2f7;border:1px solid #52657a;border-radius:7px;padding:12px;max-width:800px}.h3-six-t003 [popover]:not(:popover-open){display:none!important}.h3-six-t003 .six-merged-preview video[hidden]{display:none!important}.h3-six-t003 .h3-native-merge-controls strong,.h3-six-t003 .h3-native-merge-controls>label{display:none}.h3-six-t003 .six-merged-preview>span{display:block}.h3-six-t003 .six-merged-preview>a{font-size:10px}.h3-six-t003 .six-card-head .six-card-status{line-height:13px;padding:0 3px}.h3-six-t003 .six-model-label{max-width:130px}.h3-six-t003 .six-model-start{white-space:nowrap}\n';sheet.textContent+='.h3-six-t003 .six-merged-preview{position:relative;height:145px}.h3-six-t003 .six-merged-preview>span{position:absolute;inset:35% 0 auto;text-align:center;font-size:11px;pointer-events:none}.h3-six-t003 .six-merged-preview:has(video[src])>span{display:none}.h3-six-t003 .six-merged-preview>a{position:absolute;right:0;top:0;background:#111b;color:#9dc8ff;z-index:1}.h3-six-t003 .h3-native-merge-controls>span{margin-left:0!important;display:block;height:14px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.h3-six-t003 .six-footer{padding-top:2px}.h3-six-t003 .six-card-head .six-card-status{font-size:10px}';sheet.textContent+='.h3-six-t003 .six-header>label{white-space:nowrap}.h3-six-t003 .six-card-status[data-state=done]{background:#204332;color:#80dfac}.h3-six-t003 .six-card-status[data-state=failed]{background:#512b32;color:#ffa8b5}.h3-six-t003 .six-card-status[data-state=waiting]{background:#31343a;color:#b5bdc9}.h3-six-t003 .six-config-two label{font-size:10px}.h3-six-t003 .six-config-two .six-inheritance{max-width:90px}.h3-six-t003 .six-config-two .cross-source{max-width:90px}.h3-six-t003 .six-config-two .song-source{max-width:110px}.h3-six-t003 .six-config-two .song-start{max-width:55px}';root.append(sheet);
+  const sheet=document.createElement('style');sheet.textContent=SIX_T003_CSS+'\n.h3-six.h3-six-t003{padding:4px;gap:2px;height:930px;max-height:930px}.h3-six-t003 .six-header{height:30px;min-height:30px;padding:1px 4px}.h3-six-t003 .six-header h2{font-size:16px}.h3-six-t003 .six-header button{font-size:10px;padding:2px}.h3-six-t003 .six-config-one,.h3-six-t003 .six-config-two{min-height:32px}.h3-six-t003 .six-story{height:32px;grid-template-columns:minmax(0,1fr) auto minmax(0,.7fr)}.h3-six-t003 .six-story>label{flex-direction:row;align-items:center;font-size:10px}.h3-six-t003 textarea.six-input{height:32px;min-height:32px}.h3-six-t003 .six-story button{height:32px}.h3-six-t003 .six-prompts{grid-template-rows:repeat(2,310px);gap:5px}.h3-six-t003 .six-card{padding:2px;gap:0}.h3-six-t003 .six-card-head{min-height:16px;height:16px}.h3-six-t003 .six-card-head h3{font-size:13px}.h3-six-t003 .six-video-wrap{width:100%;aspect-ratio:16/9;flex:none}.h3-six-t003 textarea.six-prompt{min-height:80px;height:80px;flex:1;font:13px/1.45 system-ui;padding:6px}.h3-six-t003 .six-card-foot{height:32px;min-height:32px}.h3-six-t003 .six-card-foot button{font-size:10px;padding:2px}.h3-six-t003 .six-footer{min-height:160px;height:160px;max-height:160px;flex:1}.h3-six-t003 .six-task-details{background:#202936;color:#edf2f7;border:1px solid #52657a;border-radius:7px;padding:12px;max-width:800px}.h3-six-t003 [popover]:not(:popover-open){display:none!important}.h3-six-t003 .six-merged-preview video[hidden]{display:none!important}.h3-six-t003 .h3-native-merge-controls strong,.h3-six-t003 .h3-native-merge-controls>label{display:none}.h3-six-t003 .six-merged-preview>span{display:block}.h3-six-t003 .six-merged-preview>a{font-size:10px}.h3-six-t003 .six-card-head .six-card-status{line-height:13px;padding:0 3px}.h3-six-t003 .six-model-label{max-width:130px}.h3-six-t003 .six-model-start{white-space:nowrap}\n';sheet.textContent+='.h3-six-t003 .six-merged-preview{position:relative;height:145px}.h3-six-t003 .six-merged-preview>span{position:absolute;inset:35% 0 auto;text-align:center;font-size:11px;pointer-events:none}.h3-six-t003 .six-merged-preview:has(video[src])>span{display:none}.h3-six-t003 .six-merged-preview>a{position:absolute;right:0;top:0;background:#111b;color:#9dc8ff;z-index:1}.h3-six-t003 .h3-native-merge-controls>span{margin-left:0!important;display:block;height:14px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.h3-six-t003 .six-footer{padding-top:2px}.h3-six-t003 .six-card-head .six-card-status{font-size:10px}';sheet.textContent+='[data-h3-rebase]{display:none!important}.h3-six-t003 .six-header>label{white-space:nowrap}.h3-six-t003 .six-card-status[data-state=done]{background:#204332;color:#80dfac}.h3-six-t003 .six-card-status[data-state=failed]{background:#512b32;color:#ffa8b5}.h3-six-t003 .six-card-status[data-state=waiting]{background:#31343a;color:#b5bdc9}.h3-six-t003 .six-config-two label{font-size:10px}.h3-six-t003 .six-config-two .six-inheritance{max-width:90px}.h3-six-t003 .six-config-two .cross-source{max-width:90px}.h3-six-t003 .six-config-two .song-source{max-width:110px}.h3-six-t003 .six-config-two .song-start{max-width:55px}';root.append(sheet);
   const visibleStatusStyle=document.createElement('style');visibleStatusStyle.textContent='.h3-six-t003 .six-footer-actions>.six-status{display:block;width:100%;max-width:none;max-height:40px;min-height:18px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;color:#b5bdc9;background:transparent;padding:2px 0;line-height:1.35}.h3-six-t003 .six-footer-actions>.six-status[data-state=error]{color:#ffdce0;background:#682e38;border:1px solid #dc6472;border-radius:4px;padding:3px 5px}.h3-six-t003 .six-footer-actions>.six-status[data-state=warning]{color:#ffdfa2}';root.append(visibleStatusStyle);
   root.style.overflow='visible';root.style.padding='0';
   cards.forEach((c,i)=>{

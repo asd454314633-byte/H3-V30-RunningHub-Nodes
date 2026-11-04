@@ -4,11 +4,11 @@ import {app} from '../../../scripts/app.js';
 import {restoredExecutionPolicy} from './h3_execution_policy.js?v=20261024savedpolicy1';
 import {api} from '../../../scripts/api.js';
 import {sixIdentity,scopedSixStorage} from '/extensions/H3_Prompt_Sidecar/six_identity.js?v=20261025identity1';
-import {uploadGuide,previewGuide,guideImageURL,watchGuideFrames} from './h3_six_guides.js?v=20261017guide3';
-import {executeVisiblePrompt} from './h3_six_execute.js?v=20261029t015rerun1';
-import {fingerprintWithPredecessor,verifyNativeReceipt} from './h3_six_receipt_contract.js?v=20261025chain3';
-import {applySegmentSettingsToPrompt} from './h3_task_workflow.js?v=20261024segmentsettings2';
-import {installNativeMerge,beforeSixExecution} from './h3_native_merge.js?v=20261029t015rerun2';
+import {uploadGuide,previewGuide,guideImageURL,watchGuideFrames} from './h3_six_guides.js?v=20261101sixfix2';
+import {executeVisiblePrompt} from './h3_six_execute.js?v=20261101longsong1';
+import {fingerprintWithPredecessor,verifyNativeReceipt} from './h3_six_receipt_contract.js?v=20261101resume3';
+import {applySegmentSettingsSafe} from './h3_task_workflow.js?v=20261101unblock1';
+import {installNativeMerge,beforeSixExecution} from './h3_native_merge.js?v=20261101sixfix2';
 import {readJsonResponse} from './h3_json_response.js?v=p0fix1';
 
 import {SIX_MIN_WIDTH,installSixWidthContract} from './h3_six_width_contract.js?v=20261006d';
@@ -177,6 +177,11 @@ async function resolveSegmentVideo(index,result){
   const history=(await response.json())[result.prompt_id];
   if(history?.status?.status_str!=='success'||history.status.completed!==true)throw Error('本段历史尚未确认SUCCESS');
   const id=result.save_video_node_id||saveVideoNodeId();
+  const graph=history.prompt?.[2]||{};
+  const saves=Object.values(graph).filter(n=>n.class_type==='H3ContinuationSave');
+  const project=saves[0]?.inputs?.project_id;
+  if(saves.length!==1||saves[0].inputs.segment_index!==index||!project||graph[id]?.class_type!=='SaveVideo'||graph[id].inputs?.filename_prefix!==`${project}/S${index+1}`)
+    throw Error(`任务输出身份与 S${index+1} 不一致，拒绝绑定到该卡片`);
   const nodeOutput=history.outputs?.[id];
   const videos=[...(nodeOutput?.images||[]),...(nodeOutput?.videos||[])].filter(v=>typeof v.filename==='string'&&/\.(mp4|webm|mov|mkv)$/i.test(v.filename));
   if(videos.length!==1)throw Error('正式SaveVideo输出不是唯一视频');
@@ -389,15 +394,15 @@ async function mount(node) {
   for(const name of ['pointerdown','pointerup','mousedown','mouseup','click','wheel','keydown','keyup'])root.addEventListener(name,event=>event.stopPropagation());
   try{
     await restoreProductionIdentity(node);
-    const {mountSixDirector}=await import('/h3-director/six_ui.js?v=20261029t015rerun2');
+    const {mountSixDirector}=await import('/h3-director/six_ui.js?v=20261101fresh2');
     const execute=async(...args)=>{await node.__h3EditSync?.catch(()=>{});await beforeSixExecution(root);const id=saveVideoNodeId();const result=await executeVisiblePrompt(...args);return {...result,save_video_node_id:id,superseded:result.execution_version&&result.execution_version!==node.properties.h3_prebake_binding?.execution_version}};
     const readReceiptJSON=async(path,optional=false)=>{let response;try{response=await api.fetchApi(path)}catch(error){throw Error(`回执请求连接失败：${path}｜${(error&&error.message)||error}`)}if(optional&&response.status===404)return null;const value=await readJsonResponse(response,path,{optional404:optional,empty404AsObject:true,label:'回执读取 '});if(!response.ok)throw Error((value&&value.error)||`读取回执失败：${path}｜HTTP ${response.status} ${response.statusText}`);return value;};
-    const fingerprintSegment=async(index,text,options)=>{const output=structuredClone((await app.graphToPrompt()).output);applySegmentSettingsToPrompt(output,options.segment_settings||{});const identityRefs=await prepareIdentity(output,index);text+=identityRefs.suffix;const seed=app.graph.getNodeById(142)?.widgets?.[1]?.value||'fixed';return fingerprintWithPredecessor(output,text,options.segment_settings||{},seed,index,options,readReceiptJSON);};
+    const fingerprintSegment=async(index,text,options)=>{const output=structuredClone((await app.graphToPrompt()).output);applySegmentSettingsSafe(output,options.segment_settings||{});const identityRefs=await prepareIdentity(output,index);text+=identityRefs.suffix;const seed=app.graph.getNodeById(142)?.widgets?.[1]?.value||'fixed';return fingerprintWithPredecessor(output,text,options.segment_settings||{},seed,index,options,readReceiptJSON);};
     const recoverSegment=async(record,index,options)=>{const binding=node.properties.h3_prebake_binding;if(prebakeEnabled()&&(!binding||record.execution_version!==binding.execution_version||record.group_id!==binding.group_id||record.story_id!==binding.story_id))throw Error('PreBake执行版本/组身份已变化，拒绝旧回执');return verifyNativeReceipt(record,index,options.project_id,readReceiptJSON);};
     const ui=await mountSixDirector(root,{base:'',execute,canForkSegment:()=>prebakeEnabled(),workflowIdentity:identity,workflowSnapshot,fingerprintSegment,recoverSegment,savedState:node.properties.six_prompt_state,storyId:storyId(node),executionState:node.properties.six_prompt_state?.execution||{},videoRefs:node.properties.six_prompt_state?.video_refs||[],resolveVideo:resolveSegmentVideo,mediaURL:videoURL,guideConfigs:node.properties.six_prompt_state?.guides,collectReferences:async(settings)=>directorReferenceImages(await app.graphToPrompt(),settings),guideTools:{upload:uploadGuide,preview:previewGuide,mediaURL:guideImageURL,watch:watchGuideFrames}});
     // 保存画布恢复已移入 mountSixDirector，在任务恢复回填前应用，保留原优先级与空态守卫。
     const binding=node.properties.h3_prebake_binding;
-    if(prebakeEnabled()&&binding){const policy=restoredExecutionPolicy(node.properties.six_prompt_state?.execution,binding);ui.setRuntimeProject(policy.project_id);root.querySelector('.six-start').value=String(policy.start_index);root.querySelector('.six-inheritance').value=policy.start_mode}
+    if(prebakeEnabled()&&binding){const policy=restoredExecutionPolicy(node.properties.six_prompt_state?.execution,binding);ui.setRuntimeProject(policy.project_id);root.querySelector('.six-start').value=String(node.properties.six_prompt_state?.execution?.start_index??0);root.querySelector('.six-inheritance').value='resume'}
     node.__sixUI=ui;ready=true;
     // A064-2：先取工作流文件中的六段文本（ready 前属性不可被覆盖），最后逐字覆盖卡片（工作流优先）
     const savedTexts=Array.isArray(node.properties.six_prompt_state?.texts)?node.properties.six_prompt_state.texts.slice():null;

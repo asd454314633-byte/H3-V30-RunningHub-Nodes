@@ -25,8 +25,8 @@ export async function previewGuide(index,config){
  if(!config?.enabled)return null;
  checkLegacy();
  const host=app.graph._nodes.find(n=>n.type==='H3SixDirectorState'&&n.properties.h3_six_director),root=host?.__sixRoot;
- const continuous=root?.querySelector('.six-continuous').value==='on';
- const independent=!continuous||(root?.querySelector('.six-inheritance').value==='independent'&&Number(root?.querySelector('.six-start').value)===index);
+ const continuous=true;
+ const independent=false;
  const cross=host?.properties.h3_cross_group?.enabled===true;
  const snapshot=await app.graphToPrompt();
  return (await request('preflight',{graph:snapshot.output,index,config,inherit:continuous&&(index>0||cross)&&!independent,snapshot_id:'UI_PREVIEW_'+index})).guide;

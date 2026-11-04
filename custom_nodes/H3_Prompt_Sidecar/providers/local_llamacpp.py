@@ -1,5 +1,5 @@
 """The only implemented provider; owns all llama.cpp-specific behavior."""
-import json, socket, time, urllib.request, urllib.error, os
+import json, socket, time, urllib.request, urllib.error
 from .context_budget import ContextBudgetGuard
 from pathlib import Path
 from .base import ModelProvider, ModelRequest, ModelResponse, ProviderError
@@ -117,7 +117,7 @@ class LocalLlamaCppProvider(ModelProvider):
 
     def launch_command(self):
         c = self.config
-        command = [str(Path(c["runtime"]) / ("llama-server.exe" if os.name == "nt" else "llama-server")), "--model", c["model"],
+        command = [str(Path(c["runtime"]) / "llama-server.exe"), "--model", c["model"],
                 "--alias", self.model, "--host", "127.0.0.1", "--port", c["port"],
                 "-ngl", c["gpu_layers"], "--n-cpu-ffn", c["n_cpu_ffn"],
                 "-c", c["ctx"], "-np", c["parallel"], "-t", c["threads"],

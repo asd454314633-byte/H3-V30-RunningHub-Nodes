@@ -1,17 +1,19 @@
+import {sixOptions,inheritSegment,disableSixRebase,wireSixContinuation,assertSixSubmission,disableCrossGroup,correctSixSubmission} from './h3_six_chain_contract.mjs?v=20261101fresh2';
 import {app} from '../../../scripts/app.js';
 import {api} from '../../../scripts/api.js';
 import {flightProgressText,normalizeFlightEvent} from './h3_flight_progress.js?v=20261024progress2';
-import {prepareUserGuide,compileUnmanagedGuide,assertGuideSafe} from './h3_six_guides.js?v=20261017guide3';
+import {prepareUserGuide,compileUnmanagedGuide,assertGuideSafe} from './h3_six_guides.js?v=20261101sixfix2';
 import {prepareLongSong,finishLongSong} from './h3_long_song.js?v=20261020closeout1';
 import {resolveSongStart} from '/extensions/H3_LongSong/start_contract.js?v=20261016origin1';
 import {prepareProduction,cachedGraph,acceptProduction,submitProduction,productionStatus,enabled as productionEnabled} from '/extensions/h3_conditioning_prebake/production.js?v=20261024p0cache3';
-import {assertNativeProjectUnbound} from './h3_six_receipt_contract.js?v=20261025chain3';
+import {assertNativeProjectUnbound} from './h3_six_receipt_contract.js?v=20261101resume3';
 import {compileForSubmission,submissionDuration} from './h3_six_compiler.js?v=20261029t015time1';
 import {applyShotTimes} from './six_console_v2_core.js?v=20261029fulltext1';
-import {applySegmentSettingsToPrompt,bindTaskWorkflow} from './h3_task_workflow.js?v=20261024segmentsettings2';
+import {applySegmentSettingsSafe,bindTaskWorkflow} from './h3_task_workflow.js?v=20261101unblock1';
 
 import {prepareIdentity,identityConfig} from './h3_identity_refs.js?v=20261028t009a';
 import {readJsonResponse} from './h3_json_response.js?v=p0fix1';
+import {applyTail12Consume,applyTail12Produce,tail12ConsumeBlockReason,tail12ProduceBlockReason,findTail12Sampler,tail12Enabled,anchorMean} from './h3_quality_switches.js?v=20261101longsong1';
 const flights=new Map();
 let activeExecutions=0,submissionTail=Promise.resolve();
 const continuityFlights=new Map();
@@ -71,12 +73,12 @@ async function readReceiptJSON(path,optional=false){let response;try{response=aw
 
 export function executeVisiblePrompt(text,index,update,options={}) {
   const host=app.graph._nodes.find(n=>n.type==='H3SixDirectorState'&&n.properties.h3_six_director);
-  options={...options,long_song:structuredClone(host?.properties.h3_long_song||null)};
+  options={...sixOptions(options),long_song:structuredClone(host?.properties.h3_long_song||null)};
   options={...options,user_guide:structuredClone(host?.__sixUI?.guideSnapshot?.()[index]||host?.properties.six_prompt_state?.guides?.[index]||null)};
   options={...options,manual_shot_times:structuredClone(host?.properties.h3_manual_shot_times?.[index]||null)};
   options={...options,identity_refs:identityConfig()};
   assertGuideSafe(options.user_guide);
-  if(host?.properties.h3_cross_group?.enabled===true)options={...options,cross_group:structuredClone(host.properties.h3_cross_group)};
+  if(disableCrossGroup(host,update))app.graph.setDirtyCanvas(true,true);
   options={...options,submission_id:crypto.randomUUID(),production_selection:host?structuredClone({story_id:host.properties.h3_prebake_story_id,binding:host.properties.h3_prebake_binding,generated_group_id:host.__sixUI?.group?.id||null,texts:[...host.__sixRoot.querySelectorAll('.six-prompt')].map(a=>a.value),revisions:host.properties.h3_prebake_revisions||[0,0,0,0,0,0],previous:host.properties.h3_prebake_texts||['','','','','','']}):null};
   const key=(options.project_id||'H3_SIX_V288')+':'+index;
   const dependencies=options.continuous===true&&index>0&&options.independent!==true?[continuityFlights.get((options.project_id||'H3_SIX_V288')+':'+(index-1))].filter(Boolean):[];
@@ -89,6 +91,7 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
   let monitor=null,release=null;
   try{
     const snapshot=structuredClone(await app.graphToPrompt());
+    disableSixRebase(snapshot.output);
     if(dependencies.length){update('已接受续接请求，等待前段真实存档');const parents=await Promise.all(dependencies);options={...options,predecessor_binding:parents.at(-1)?.binding}}
     const previous=submissionTail;submissionTail=new Promise(resolve=>release=resolve);await previous;
     const project=options.project_id||'H3_SIX_V288';
@@ -96,7 +99,7 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
     if(options.isCancelled?.())throw Error('用户已取消，未提交本段');
     if(continuous&&!productionEnabled())await assertNativeProjectUnbound(project,readReceiptJSON);
     const cross=options.cross_group?.enabled===true;
-    const inherit=continuous&&(index>0||cross)&&options.independent!==true;
+    const inherit=inheritSegment(index);
     if(cross&&(!options.long_song?.enabled||app.graph.extra?.h3_prebake_production?.enabled!==true))throw Error('跨组续接需要现有完整歌曲适配和PreBake受控提交链');
     if(options.long_song?.enabled){
       const firstText=index===0?text:options.production_selection?.texts?.[0];
@@ -116,10 +119,20 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
       const verified=await storeRequest('/h3/long-song/validate-start',{...options.long_song,project_id:selectedProject,segment_index:index,inherit,...(cross?{cross_group:options.cross_group.contract,graph:snapshot.output,clean_rebase:prepare?.clean_rebase_enabled===true&&Number(prepare.clean_rebase_segment)===index}:{})});
       update(cross?`接上一组：新增内容从${options.cross_group.contract.global_boundary}秒接续，首段保护并仅裁剪39帧`:`原曲起点 ${verified.start_seconds}秒（${options.long_song.start_origin}）；后续段按实际保存帧数自动接续`);
     }
-    const segmentParameters=applySegmentSettingsToPrompt(snapshot.output,options.segment_settings||{}, {longSong:options.long_song?.enabled===true});
-    const manualDuration=options.manual_shot_times?.length?submissionDuration(snapshot,segmentParameters.settings.length):null;
-    const manualText=applyShotTimes(text,options.manual_shot_times,manualDuration);
-    text=manualText;
+    // 2026-11-01 用户授权：本段参数覆写由"阻断"改为"仅提示"，不再挡住执行。
+    const segmentParameters=applySegmentSettingsSafe(snapshot.output,options.segment_settings||{}, {longSong:options.long_song?.enabled===true});
+    if(segmentParameters.warning)update(`第${index+1}段提示：${segmentParameters.warning}；本段降级按画布现有参数继续生成，不阻断`);
+    let manualDuration=null,manualText=text;
+    if(options.manual_shot_times?.length){
+      try{
+        manualDuration=submissionDuration(snapshot,segmentParameters.settings.length);
+        manualText=applyShotTimes(text,options.manual_shot_times,manualDuration);
+        text=manualText;
+      }catch(error){
+        manualDuration=null;manualText=text;
+        update(`第${index+1}段提示：镜头手填时间未生效（${error.message}）；本段降级按自动时间继续生成，不阻断`);
+      }
+    }
     prepareLongSong(snapshot,index,options);
     const userGuide=await prepareUserGuide(snapshot,index,options);
     if(userGuide)update(`第${index+1}段关键帧：可见索引${userGuide.visible_frame} → 模型索引${userGuide.model_frame}（保护区${userGuide.protected_frames}帧）`);
@@ -133,7 +146,7 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
       options={...options,production_selection:{...options.production_selection,texts:compiled}};
       text=compiled[index];
     }else text=await compileForSubmission(text,index,options,update,snapshot);
-    if(options.manual_shot_times?.length){
+    if(options.manual_shot_times?.length&&manualDuration){
       try{text=applyShotTimes(text,options.manual_shot_times,manualDuration)}
       catch(error){text=manualText;update(`第${index+1}段：编译稿镜头结构不匹配，采用保留手动时间的原稿`)}
       if(options.production_selection){const texts=[...options.production_selection.texts];texts[index]=text;options={...options,production_selection:{...options.production_selection,texts}}}
@@ -175,17 +188,7 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
         output['644'].inputs.prompt=text;
         if(output['914']?.class_type==='PrimitiveStringMultiline')output['914'].inputs.value=text;
       }
-      const native=Object.values(output||{}).filter(n=>n.class_type?.startsWith('H3Continuation'));
-      for(const type of ['Prepare','Guides','Save','TrimOnce','Assemble']){
-        const nodes=native.filter(n=>n.class_type==='H3Continuation'+type);
-        if(nodes.length!==1)throw Error('缺少或重复Native连续节点：'+type);
-        const inputs=nodes[0].inputs;
-        if(type!=='Guides')inputs.project_id=generationProject;
-        if(['Prepare','Save','TrimOnce'].includes(type))inputs.segment_index=index;
-        if(type==='Save')inputs.enabled=Boolean(prebake)||continuous;
-        if(['Prepare','Guides','TrimOnce'].includes(type))inputs.enabled=inherit;
-        if(type==='Prepare')delete inputs.prev_latent; // Resume uses this exact project's index-1 store.
-      }
+      wireSixContinuation(output,generationProject,index,inherit);
       args[1].output=await cachedGraph(finishLongSong(output,options,generationProject),prebake);
       if(!prebake)args[1].output=await compileUnmanagedGuide(args[1].output,index,options,generationProject);
       const saveVideos=Object.values(args[1].output||{}).filter(n=>n.class_type==='SaveVideo');
@@ -193,6 +196,21 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
       // Keep every real segment output under its project-specific contract path.
       saveVideos[0].inputs.filename_prefix=`${generationProject}/S${index+1}`;
       if(app.graph?.extra?.h3_drift_anchor===true)applyDriftAnchor(args[1].output,generationProject,index,update);
+      args[1].output=await applyTail12Submission(args[1].output,generationProject,index,inherit,update);
+      correctSixSubmission(args[1].output,generationProject,index);
+      if(index>0){
+        const prep=Object.values(args[1].output).find(n=>n.class_type==='H3ContinuationPrepare')?.inputs;
+        const ref=prep?.prev_latent,source=Array.isArray(ref)?args[1].output[String(ref[0])]:null;
+        if(source?.class_type==='H3Tail12LoadAccepted'){
+          const suffix=`/${generationProject}/seg_${String(index-1).padStart(5,'0')}_tail12.safetensors`;
+          if(!String(source.inputs?.s3_safetensors||'').replaceAll('\\','/').endsWith(suffix)){
+            const info=await storeRequest(`/h3/tail12/status?project_id=${encodeURIComponent(generationProject)}&segment_index=${index-1}`);
+            if(!info.accepted_exists||!info.reusable||Number(info.segment_index)!==index-1||!String(info.repaired||'').replaceAll('\\','/').endsWith(suffix))throw Error(`无法核实 S${index} 的尾部存档`);
+            source.inputs.s3_safetensors=info.repaired;update(`已自动校正：S${index+1} 接续 S${index} 的尾部`);
+          }
+        }
+      }
+      assertSixSubmission(args[1].output,generationProject,index);
       if(continuous)await storeRequest('/h3/six/acceptance',{project_id:generationProject,segment_index:index,status:'PENDING',group_id:prebake?.context?.group_id,requires_predecessor:inherit&&index>0,submission_id:options.submission_id});
       if(options.isCancelled?.())throw Error('用户已取消，未提交本段');
       const result=prebake?await submitProduction(prebake,args[1].output,args[1].workflow,api.clientId):await original.apply(this,args);
@@ -219,6 +237,56 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
   }finally{release?.();monitor?.cleanup();activeExecutions--}
 }
 
+// T022（方案A）：尾12 分工为"本段产出、下段消费"。
+//   * 消费：第n+1段只读取第n段已落盘的修复版前缀（零采样）。缺失/过期一律拒绝提交，
+//     绝不静默退回未修复的原始前缀。
+//   * 产出：第n段在本段存档之后重绘本段最后12个视频token，另存 seg_n_tail12。
+//     依赖方向 sampler→anchor→Save→extract→尾12采样→commit，不回指 Prepare，故无环。
+// 段号约定：seg_%05d_tail12 的 %05d 就是"尾巴被修的那一段"，写入与读取（six_resume、
+// 合并回执）同为该段号，不存在差一位。
+const TAIL12_CONSUME_SKIP=new Set(['first segment has no predecessor','segment is not continuing',
+  'continuation disabled for this segment','clean rebase segment must not receive a native prefix']);
+const TAIL12_PRODUCE_SKIP=new Set(['last segment has no successor','segment latent is not being saved']);
+function findNode(graph,cls){const entries=Object.entries(graph||{}).filter(([,n])=>n?.class_type===cls);return entries.length===1?{id:entries[0][0],node:entries[0][1]}:null}
+export async function applyTail12Submission(output,project,index,inherit,update){
+  if(!tail12Enabled(app.graph?.extra))return output;
+  let graph=output||{};
+  const prepare0=findNode(graph,'H3ContinuationPrepare');
+  const consumeBlocked=tail12ConsumeBlockReason(graph,{index,inherit,prepare:prepare0?.node});
+  if(consumeBlocked&&!TAIL12_CONSUME_SKIP.has(consumeBlocked))
+    throw Error(`尾12开关已打开但接线失败：${consumeBlocked}；未提交本段`);
+  if(!consumeBlocked){
+    let info;
+    try{
+      const response=await api.fetchApi(`/h3/tail12/status?project_id=${encodeURIComponent(project)}&segment_index=${index-1}`);
+      info=await readJsonResponse(response,'/h3/tail12/status',{label:'尾12状态 '});
+      if(!response.ok)throw Error(info?.error||`HTTP ${response.status}`);
+    }catch(error){throw Error(`尾12：无法核实前一段修复版｜${error.message}；未提交本段`)}
+    if(Number(info?.segment_index)!==index-1)
+      throw Error(`尾12：状态段号不符（期望S${index}，返回${info?.segment_index}）；未提交本段`);
+    if(!info?.accepted_exists)throw Error(`尾12：第${index}段已接受latent不存在；未提交本段`);
+    if(!info?.reusable)
+      throw Error(`尾12：第${index}段还没有可用的尾12修复版（${info?.reason||'未知'}）；`
+        +`请开启尾12后重跑第${index}段以产出 seg_${String(index-1).padStart(5,'0')}_tail12，再生成第${index+1}段；未提交本段`);
+    const consumed=applyTail12Consume(graph,{project,index,inherit,repairedPath:info.repaired});
+    if(!consumed.injected)throw Error(`尾12接入失败：${consumed.reason}；未提交本段`);
+    graph=consumed.graph;
+    update(`第${index+1}段：复用第${index}段尾12修复版前缀`);
+  }
+  const prepare1=findNode(graph,'H3ContinuationPrepare');
+  const sampler=prepare1?findTail12Sampler(graph,prepare1.id):null;
+  const save=findNode(graph,'H3ContinuationSave');
+  const saveEnabled=save?save.node.inputs?.enabled:undefined;
+  const produced=applyTail12Produce(graph,{project,index,save,sampler,saveEnabled,saveVideo:true});
+  if(produced.injected){
+    graph=produced.graph;
+    update(`第${index+1}段：本段尾部39帧将重绘并另存（供第${index+2}段复用）`);
+  }else if(!TAIL12_PRODUCE_SKIP.has(produced.reason)){
+    throw Error(`尾12产出接线失败：${produced.reason}；未提交本段`);
+  }
+  return graph;
+}
+
 // A089：续接前缀已是校正后的存档，新段从第一个新位置起全力校正（原 24 位爬坡造成每段开头发灰）。
 // A080：漂移锚定（实验）。仅在开关打开时把 H3LatentDriftAnchor 接在视频解码的潜空间来源之后，
 // 并把解码/音频解码/Jerk/续接存档对该来源的引用改接到锚定输出；关闭时不触碰提交图。
@@ -232,6 +300,6 @@ function applyDriftAnchor(output,project,index,update){
     if(!['VAEDecode','VAEDecodeAudio','H3JerkOracle','H3ContinuationSave'].includes(node?.class_type))continue;
     for(const [key,value] of Object.entries(node.inputs||{}))if(Array.isArray(value)&&String(value[0])===String(src[0])&&value[1]===src[1]){node.inputs[key]=[id,0];rewired++}
   }
-  output[id]={class_type:'H3LatentDriftAnchor',inputs:{latent:src,project_id:project,segment_index:index,prefix_tokens:12,ramp_tokens:1,strength_mean:1.0,strength_hf:1.0,enabled:true,strength_fine:0.7,strength_mid:1.0,grid_h:6,grid_w:4,reanchor_segment:-1}};
+  output[id]={class_type:'H3LatentDriftAnchor',inputs:{latent:src,project_id:project,segment_index:index,prefix_tokens:12,ramp_tokens:1,strength_mean:anchorMean(app.graph?.extra,index),strength_hf:1.0,enabled:true,strength_fine:0.7,strength_mid:1.0,grid_h:6,grid_w:4,reanchor_segment:-1}};
   update(`第${index+1}段：漂移锚定（实验）已接入，改接 ${rewired} 处${index===0?'；本段记为标准':''}`);
 }

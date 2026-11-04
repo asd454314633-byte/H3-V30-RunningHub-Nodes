@@ -6,7 +6,6 @@ import folder_paths
 import comfy.model_management as mm
 from comfy_execution.utils import get_executing_context
 from . import cache_codec as codec
-from .platform_telemetry import system_memory
 
 def module_at(folder):
  for m in tuple(sys.modules.values()):
@@ -22,7 +21,7 @@ def residency(require_te_zero):
  for e in mm.current_loaded_models:
   if e.model is not None and type(e.model.model).__module__=='comfy.model_base' and type(e.model.model).__name__=='MiniMaxH3':models.append(audit.model_snapshot(e))
  if len(models)>1:raise RuntimeError('Multiple H3 loaded targets')
- return {'TE_TARGET_COUNT':len(entries),'TE_SNAPSHOT':te.probe.snapshot(),'PREBAKE_TE_RELEASED':not entries if require_te_zero else None,'zero_target_census':census,'H3':models,'system':system_memory(te.probe)}
+ return {'TE_TARGET_COUNT':len(entries),'TE_SNAPSHOT':te.probe.snapshot(),'PREBAKE_TE_RELEASED':not entries if require_te_zero else None,'zero_target_census':census,'H3':models,'system':te.probe._windows_memory()}
 def record(kind,data):
  ctx=get_executing_context();data.update(kind=kind,pid=os.getpid(),epoch=time.time(),prompt_id=ctx.prompt_id if ctx else None,node_id=ctx.node_id if ctx else None)
  folder=Path(folder_paths.get_user_directory())/'h3_conditioning_prebake';folder.mkdir(exist_ok=True)

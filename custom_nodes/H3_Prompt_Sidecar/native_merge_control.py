@@ -10,6 +10,8 @@ import time
 import uuid
 from pathlib import Path
 
+from .six_resume import video_frame_count
+
 
 class NativeMergeControl:
     def __init__(self, root, template, history, submit, validate, inspect, queue=None, state_lock=None):
@@ -92,7 +94,8 @@ class NativeMergeControl:
         def change(s):
             s['active_group_id'] = group_id
             if group_id not in s['groups']:
-                enabled = s['auto_merge_enabled']
+                enabled = False
+                s['auto_merge_enabled'] = False
                 s['groups'][group_id] = {'eligible': enabled, 'started_at': time.time(), 'prompt_ids': {},
                     'merge_prompt_id': None, 'merge_output': None,
                     'merge_status': 'WAITING_6_OF_6' if enabled else 'DISABLED'}
@@ -101,6 +104,8 @@ class NativeMergeControl:
 
     async def begin_validated(self, project, graph, group_id=None):
         """Create the merge group only after ComfyUI accepts the submitted graph shape."""
+        if graph is None:
+            return self.begin(project, group_id)
         if not isinstance(graph, dict) or not graph:
             raise ValueError('Missing execution graph; merge group was not created')
         result = await self.validate(graph)
@@ -166,6 +171,8 @@ class NativeMergeControl:
         return ref
 
     async def complete(self, project, group_id, observe_only=False):
+        # Six-card merging is exclusively manual. Never dispatch an old automatic group.
+        return
         lock = self.locks.setdefault((project, group_id), asyncio.Lock())
         async with lock:
             if not self.selected(project,group_id):return
@@ -179,6 +186,10 @@ class NativeMergeControl:
                     except (ValueError,KeyError,OSError) as ex:
                         self.update(project,lambda st:st['groups'][group_id].update(merge_status='FAILED',merge_error='Exact merge validation failed: '+str(ex)))
                 elif g['merge_status'] in ('ERROR','FAILED') or observe_only:
+                    if g['merge_status']=='FAILED' and not pid and not g.get('enqueue_phase'):
+                        # 派发前失败（典型：重跑落盘瞬间的回执竞态触发 inspect 守卫）。
+                        # 复位为等待，下一段完成触发 complete() 时按新回执自动重评。
+                        self.update(project,lambda st:st['groups'][group_id].update(merge_status='WAITING_6_OF_6',merge_error=None))
                     return
                 elif self.queue_dedup_enabled and self.queue is not None and pid and pid not in self.executing_merge_ids and not any(item[1]==pid for item in self.queue()):
                     if g.get('enqueue_phase','INTENT') in ('INTENT','ENQUEUED'):
@@ -237,10 +248,29 @@ class NativeMergeControl:
                             return
                         videos=[ref]
                     assert len(videos)==1 and videos[0]['type']=='output'
+                    # T022: when this segment's tail was repaired by its successor's run,
+                    # the merged timeline must use the repaired replay, never the old tail.
+                    tail_override=(receipt.get('tail12_prefix') or {})
+                    accepted_ref=videos[0]
+                    if tail_override.get('video_output_ref'):videos=[tail_override['video_output_ref']]
                     v=videos[0]; assert isinstance(v['subfolder'],str) and '/' not in v['filename'] and '\\' not in v['filename']
                     relative=(Path(v['subfolder'])/v['filename']).as_posix()
                     source=(self.root/relative).resolve(); assert source.is_relative_to(self.root.resolve()) and source.is_file()
-                    if receipt.get('video_sha256'):
+                    if tail_override.get('video_output_ref'):
+                        want=str(tail_override.get('video_sha256') or '').upper()
+                        if not want or hashlib.sha256(source.read_bytes()).hexdigest().upper()!=want:
+                            raise ValueError(f'S{i+1}: 尾12修复版成片SHA256不一致')
+                        # 修复版是**整段**重放的像素，合并却是逐段首尾相接：只要两者帧数
+                        # 不同，拼出来的时间线就会多出（或少掉）重复前缀帧。
+                        accepted=(self.root/Path(accepted_ref['subfolder'])/accepted_ref['filename']).resolve()
+                        a_frames=video_frame_count(accepted); r_frames=video_frame_count(source)
+                        if a_frames is None or r_frames is None:
+                            raise ValueError(f'S{i+1}: 无法读取帧数，不能确认尾12修复版与成片同长度')
+                        if a_frames!=r_frames:
+                            raise ValueError(f'S{i+1}: 尾12修复版帧数({r_frames})与本段成片({a_frames})不一致，合并会插入重复帧')
+                        if tail_override.get('frames') not in (None,r_frames):
+                            raise ValueError(f'S{i+1}: 尾12修复版帧数与回执记录不一致')
+                    elif receipt.get('video_sha256'):
                         if hashlib.sha256(source.read_bytes()).hexdigest().upper()!=receipt['video_sha256'].upper():
                             raise ValueError(f'S{i+1}: accepted video SHA256 mismatch')
                     # Keep exact verified media provenance durable before volatile

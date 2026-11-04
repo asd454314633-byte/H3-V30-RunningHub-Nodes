@@ -2,7 +2,7 @@
 import asyncio,json,math,subprocess
 from pathlib import Path
 import folder_paths
-from .nodes import sha,inherited_plan,probe_frames
+from .nodes import receipt_video_path, sha,inherited_plan,probe_frames
 
 def validate_start(data):
     start=float(data['start_seconds'])
@@ -42,8 +42,8 @@ def validate_start(data):
             for i in range(index):
                 r=receipts.get(str(i),{});p=timeline.get(str(i)) or inherited_plan(folder_paths.get_output_directory(),r,i)
                 if r.get('status')!='SUCCESS' or not p or p.get('cross_group')!=cross:raise ValueError('本组跨组时间轴/成功回执不完整')
-                if sha(Path(r['video_path'])).upper()!=r.get('video_sha256','').upper():raise ValueError('本组前段视频SHA256不匹配')
-                previous+=probe_frames(Path(r['video_path']))
+                if sha(receipt_video_path(r)).upper()!=r.get('video_sha256','').upper():raise ValueError('本组前段视频SHA256不匹配')
+                previous+=probe_frames(receipt_video_path(r))
         frames=data.get('frames')
         if frames is None and data.get('graph'):
             from .recovery import production_module

@@ -187,6 +187,24 @@ def branch_identity(prompt, unique_id, ancestors):
                     any(inputs.get(key) != value for key, value in expected.items())):
                 raise RuntimeError('Unknown H3 branch: unvalidated OmniRef VSA contract')
             current = linked(node, 'model')
+        elif kind == 'MiniMaxH3SparkAttentionSM120':
+            # T018: Spark-H3 replaces the VSA node only with the exact T017 C4
+            # contract (speed, 10%); optional inputs may be omitted or default.
+            if any(n['class_type'] in (kind, 'BlockSparseAttention') for _, n in route[:-1]):
+                raise RuntimeError('Unknown H3 branch: duplicate sparse attention patches')
+            inputs = node['inputs']
+            expected = {'mode': 'speed', 'steps': 8, 'warmup_mode': 'warmup_ratio',
+                        'warmup_ratio': 0.0, 'warmup_steps': 0, 'topk_mode': 'topk_ratio',
+                        'topk_ratio': 0.1, 'topk_blocks': 228, 'dense_layers': 0,
+                        'min_tokens': 12288, 'strict': True}
+            optional = {'dense_backend': 'inherit', 'tail_granularity': 'query',
+                        'reblock_layout': 'q_reuse_k', 'sparse_scope': 'target-video',
+                        'producer_chunk': 16384}
+            if (not set(expected) | {'model'} <= set(inputs) <= set(expected) | set(optional) | {'model'} or
+                    any(inputs.get(key) != value for key, value in expected.items()) or
+                    any(key in inputs and inputs[key] != value for key, value in optional.items())):
+                raise RuntimeError('Unknown H3 branch: unvalidated OmniRef Spark contract')
+            current = linked(node, 'model')
         elif kind == 'H3PrecisionAudit':
             # Opt-in observation clone; no weight/attention edits. Keep all
             # model/PDD/provenance checks below, and reject duplicate observers.
@@ -260,9 +278,11 @@ def branch_identity(prompt, unique_id, ancestors):
         if (terminal.get('class_type') == 'UNETLoader' and
                 terminal.get('inputs', {}).get('unet_name') ==
                 'fasth3_omniref_8step_pruned_int8_convrot.safetensors'):
+            # Spark-H3 sits in the VSA slot; branch_identity already enforced its contract.
             sparse = [(nid, node) for nid, node in route
-                      if node['class_type'] == 'BlockSparseAttention']
-            route_types = [node['class_type'] for _, node in route]
+                      if node['class_type'] in ('BlockSparseAttention', 'MiniMaxH3SparkAttentionSM120')]
+            route_types = ['BlockSparseAttention' if node['class_type'] == 'MiniMaxH3SparkAttentionSM120'
+                           else node['class_type'] for _, node in route]
             expected_types = ['Any Switch (rgthree)', 'BlockSparseAttention',
                               'ModelAttentionBackend', 'MiniMaxH3SigmaShift', 'UNETLoader']
             # Official KJ preview clones MODEL and adds only OUTER_SAMPLE.
@@ -524,7 +544,7 @@ def classify_model_roles(prompt, ancestors, branch):
         for field, ref in prompt[nid]['inputs'].items():
             if isinstance(ref, list) and len(ref) == 2 and ref[1] == 0:
                 consumers.setdefault(str(ref[0]), []).append((nid, field))
-    forward = {'ModelAttentionBackend', 'BlockSparseAttention', 'H3MemoryOptimization', 'ModelPreviewOverrideKJ',
+    forward = {'ModelAttentionBackend', 'BlockSparseAttention', 'MiniMaxH3SparkAttentionSM120', 'H3MemoryOptimization', 'ModelPreviewOverrideKJ',
                'MiniMaxH3SigmaShift', 'LoraLoaderModelOnly', 'MiniMaxH3PDDAccApply',
                'MiniMaxH3FunControlNetApply', 'H3PrecisionAudit'}
     auxiliary = {'RTDETR_detect', 'SDPoseKeypointExtractor'}

@@ -76,6 +76,7 @@ def ffconcat_quote(path):
 class FreeMerge:
     def __init__(self, root):
         self.root = Path(root).resolve()
+        self.roots = {'output': self.root, 'input': Path(folder_paths.get_input_directory()).resolve(), 'temp': Path(folder_paths.get_temp_directory()).resolve()}
         self.job = None
 
     async def list_files(self, query='', folder='', offset=0):
@@ -113,8 +114,8 @@ class FreeMerge:
     async def start(self, entries):
         if self.job and self.job['status'] in ('排队', '处理中'):
             raise ValueError('正在合并，请稍候')
-        if not isinstance(entries, list) or not 2 <= len(entries) <= MAX_ITEMS:
-            raise ValueError('请选择 2 至 50 段视频')
+        if not isinstance(entries, list) or not 1 <= len(entries) <= MAX_ITEMS:
+            raise ValueError('请选择 1 至 50 段视频')
         # Reserve before awaiting, so concurrent requests cannot both start.
         self.job = {'id': uuid.uuid4().hex, 'status': '排队'}
         job = self.job
@@ -122,7 +123,9 @@ class FreeMerge:
             sources = []
             for entry in entries:
                 if not isinstance(entry, dict): raise ValueError('文件选择无效')
-                path = resolve_video(self.root, entry.get('path'))
+                root = self.roots.get(entry.get('type', 'output'))
+                if root is None: raise ValueError('视频目录类型无效')
+                path = resolve_video(root, entry.get('path'))
                 if identity(path) != entry.get('identity'): raise ValueError(f'文件已变化，请重新选择：{path.name}')
                 info = await probe(path)
                 if identity(path) != entry.get('identity'): raise ValueError(f'文件已变化，请重新选择：{path.name}')
@@ -150,7 +153,7 @@ class FreeMerge:
             job.update(status='失败', error='找不到 ffmpeg，请检查 FFmpeg 安装'); return
         try:
             for path, stamp, _ in sources:
-                if resolve_video(self.root, path.relative_to(self.root).as_posix()) != path or identity(path) != stamp:
+                if not any(path.is_relative_to(root) for root in self.roots.values()) or identity(path) != stamp:
                     raise ValueError(f'文件已变化：{path.name}')
             first = sources[0][2]
             copy_ok = first['audio'] is not None and all(s[2]['video'] == first['video'] and s[2]['audio'] == first['audio'] for s in sources)
@@ -228,6 +231,28 @@ def register(server):
         if blocked: return blocked
         try:
             return web.json_response(await manager.start((await request.json()).get('files')))
+        except Exception as exc:
+            return web.json_response({'error': str(exc)}, status=400)
+
+    @server.routes.post('/h3/free-merge/current')
+    async def current(request):
+        blocked = reject(request)
+        if blocked: return blocked
+        try:
+            refs = (await request.json()).get('videos')
+            if not isinstance(refs, list) or not 1 <= len(refs) <= 6:
+                raise ValueError('当前六段框没有可合并的视频')
+            entries = []
+            for ref in refs:
+                if not isinstance(ref, dict) or ref.get('type') not in manager.roots:
+                    raise ValueError('当前视频目录类型无效')
+                name, subfolder = ref.get('filename'), ref.get('subfolder')
+                if not isinstance(name, str) or Path(name).name != name or not isinstance(subfolder, str):
+                    raise ValueError('视频引用无效')
+                relative = (Path(subfolder) / name).as_posix()
+                path = resolve_video(manager.roots[ref['type']], relative)
+                entries.append({'path': relative, 'type': ref['type'], 'identity': identity(path)})
+            return web.json_response(await manager.start(entries))
         except Exception as exc:
             return web.json_response({'error': str(exc)}, status=400)
 

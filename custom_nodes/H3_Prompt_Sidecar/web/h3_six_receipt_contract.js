@@ -63,6 +63,8 @@ export async function verifyNativeReceipt(record,index,project,read){
       // Only a stale never-completed local attempt may be reconciled onto it.
       if(['SUBMITTED','PREPARING','PENDING'].includes(record.status))
         return {state:'ACCEPTED',result:{prompt_id:receipt.prompt_id,accepted:true,recovered:true,reconciled_from_ledger:true,video_ref:receipt.video_output_ref}};
+      if(record.status==='ACCEPTED'&&!receipt.pending_attempt_at_epoch)
+        return {state:'SUPERSEDED',result:{prompt_id:receipt.prompt_id,accepted:true,video_ref:receipt.video_output_ref}};
       throw Error('耐久回执与本地提交身份不一致，拒绝复用');
     }
     // No durable success for this segment: the submission is dead unless the
@@ -88,6 +90,16 @@ export async function verifyNativeReceipt(record,index,project,read){
  if(receipt?.status==='PENDING'&&(!receipt.prompt_id||receipt.prompt_id===record.prompt_id)){
   const response=await fetch('/h3/six/acceptance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project_id:project,segment_index:index,status:'SUCCESS',prompt_id:record.prompt_id,group_id:receipt.group_id??null})});
   if(!response.ok)throw Error('History成功，补登accepted回执被服务端拒绝：'+((await response.json().catch(()=>({}))).error||response.status));
+  receipts=await read('/view?'+new URLSearchParams({filename:'six_acceptance.json',type:'output',subfolder:'h3_continuation/'+project}));
+  receipt=receipts[String(index)];
+ }
+ // 重跑已落盘但浏览器收口丢失的中间态：旧 SUCCESS 回执保留 + pending_attempt 标记，
+ // 磁盘 latent 已是 record 这次运行的身份。带上提交时登记的 lineage 令牌补登，
+ // 服务端用同一验证器核验（history/save身份/latent/尾12/前驱血缘）。绝不阻塞重抽。
+ else if(receipt?.status==='SUCCESS'&&receipt.pending_attempt_at_epoch&&record.prompt_id&&receipt.prompt_id!==record.prompt_id){
+  const lineage=receipts?._rerun_pending?.[String(index)];
+  const response=await fetch('/h3/six/acceptance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project_id:project,segment_index:index,status:'SUCCESS',prompt_id:record.prompt_id,group_id:receipt.group_id??null,submission_id:lineage?.submission_id})});
+  if(!response.ok)throw Error('History成功，补登重跑回执被服务端拒绝：'+((await response.json().catch(()=>({}))).error||response.status));
   receipts=await read('/view?'+new URLSearchParams({filename:'six_acceptance.json',type:'output',subfolder:'h3_continuation/'+project}));
   receipt=receipts[String(index)];
  }

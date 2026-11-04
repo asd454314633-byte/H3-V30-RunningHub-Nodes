@@ -420,18 +420,6 @@ function installInner(node){
       savedEn=ui.cards.map(c=>c.area.value);
     }
   }
-  /* 安装时若 UI 尚无组数据，只读拉取最新组补齐段计划/中文对照（不覆盖文本） */
-  (async()=>{try{
-    const r=await api.fetchApi('/api/h3-director/groups/latest');if(!r.ok)return;
-    const g=await r.json();if(ui.group||!g?.id)return;
-    lastGroupId=g.id;group=g;
-    plan=Array(6).fill(null).map((_,i)=>parsePlan(g.segment_plan?.[i]));
-    const localCn=readLocal(cnKey());
-    cn=Array(6).fill('').map((_,i)=>localCn?.[i]??g.segments[i]?.draft?.chinese_prompt??'');
-    if(!readLocal(origKey()))writeLocal(origKey(),{groupId:g.id,texts:g.segments.map(s=>s.english_prompt??'')});
-    refreshMeta();
-  }catch(e){}})();
-
   /* ---------- 段轨道 ---------- */
   function renderRail(){
     if(document.activeElement?.closest('.t009-shared,.t009-segment'))return;
@@ -615,7 +603,7 @@ function installInner(node){
       const holder=find(`.s2-ocard[data-i="${i}"] .s2-ovvideo`);
       const ref=c.videoRef;
       if(ref){const v=document.createElement('video');v.controls=true;v.preload='metadata';v.setAttribute('aria-label',`第${i+1}段视频（总览）`);
-        v.src=api.apiURL('/view?'+new URLSearchParams({filename:ref.filename,subfolder:ref.subfolder,type:ref.type}).toString());holder.append(v);}
+        v.dataset.videoKey=JSON.stringify([ref.filename,ref.subfolder||'',ref.type||'']);v.src=api.apiURL('/view?'+new URLSearchParams({filename:ref.filename,subfolder:ref.subfolder,type:ref.type}).toString());holder.append(v);}
       else{const [sc,st]=statusInfo(i);holder.innerHTML=`<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12px;border:1px dashed #232a35;border-radius:6px">${esc(st)}</div>`}
     });
     find('.s2-overview').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{setMode('edit');select(+b.dataset.edit)});
@@ -626,7 +614,10 @@ function installInner(node){
     find('.s2-overview').querySelectorAll('.s2-ocard').forEach(card=>{
       const i=+card.dataset.i;card.querySelector('.s2-ovpill').innerHTML=pillHtml(i);
       const holder=card.querySelector('.s2-ovvideo');
-      if(ui.cards[i].videoRef&&!holder.querySelector('video'))renderOverview();
+      const ref=ui.cards[i].videoRef,video=holder.querySelector('video');
+      const key=ref?JSON.stringify([ref.filename,ref.subfolder||'',ref.type||'']):null;
+      if(key&&video?.dataset.videoKey!==key){const v=document.createElement('video');v.controls=true;v.preload='metadata';v.setAttribute('aria-label',`第${i+1}段视频（总览）`);v.dataset.videoKey=key;v.src=api.apiURL('/view?'+new URLSearchParams({filename:ref.filename,subfolder:ref.subfolder,type:ref.type}).toString());holder.replaceChildren(v)}
+      else if(!key&&video)renderOverview();
     });
   }
 

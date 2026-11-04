@@ -1,39 +1,25 @@
-"""CANDIDATE-ONLY PASSIVE SHIM (candidate A, 2026-11-03) - NOT the production probe.
-
-Derived from 8207 runtime h3_sampler_to_vae_residency_probe/__init__.py
-(original SHA256 c7a191db899dedfd79568908e5c9b8e1b03904d9d14790934b6d813e2a3d96fe).
-
-Retained, byte-faithful read-only logic: patch_snapshot(), model_snapshot().
-Removed on purpose (candidate A "no global hooks" contract, per
-V30_CLOUD_CANDIDATE_BUILD_ORDER_20261103.md P0-3):
-  - import-time replacement of mm.load_models_gpu and MiniMaxH3VideoVAE.decode
-  - sys.setprofile observation state machine (ACTIVE/observe_safe/snapshot)
-  - the H3SamplerToVAEResidencyProbe node class (V30 does not reference it)
-
-h3_partial_diffusion_evict.audit_module() contract satisfied: this module lives
-at the exact sibling path it probes for, is present in sys.modules with this
-__file__, and exposes model_snapshot. All fail-closed assertions inside
-h3_partial_diffusion_evict remain active and untouched.
-"""
+"""Read-only sampler -> video VAE transition snapshots. No eviction operations."""
 
 import folder_paths
+import functools
 import importlib.util
 import json
 import logging
 import os
+from pathlib import Path
 import sys
 import time
-from pathlib import Path
 from types import SimpleNamespace
 
 import torch
 import comfy.model_management as mm
 from comfy.ldm.minimax.vae import MiniMaxH3VideoVAE
 
-# shared read-only helpers still come from the (A1-patched) sibling probe
-_spec = importlib.util.spec_from_file_location('h3_te_snapshot_shared', Path(__file__).parent.parent / 'h3_te_residency_probe' / '__init__.py')
-shared = importlib.util.module_from_spec(_spec)
+_spec = importlib.util.spec_from_file_location('h3_transition_shared_snapshot',Path(__file__).parent.parent/'h3_te_residency_probe'/'__init__.py')
+shared=importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(shared)
+ACTIVE=None
+FOLDER=Path(folder_paths.get_user_directory())/'h3_sampler_to_vae_residency_probe'
 
 
 def patch_snapshot(patcher,model):
@@ -114,15 +100,94 @@ def model_snapshot(entry):
     return result
 
 
+def snapshot(phase,extra=None):
+    record={'phase':phase,'epoch':time.time(),'pid':os.getpid(),'models':[],'errors':[]}
+    for entry in tuple(mm.current_loaded_models):
+        if entry.model is None:continue
+        try:record['models'].append(model_snapshot(entry))
+        except Exception as e:record['errors'].append(f'{type(e).__name__}: {e}')
+    record['GLOBAL_PINNED_GIB']=mm.TOTAL_PINNED_MEMORY/shared.GIB
+    memory=shared._windows_memory()
+    record.update({k[:-6]+'_GIB':v/shared.GIB for k,v in memory.items() if k.endswith('_BYTES')})
+    record['SYSTEM_COMMIT_PERCENT']=memory['SYSTEM_COMMIT_PERCENT']
+    if torch.cuda.is_initialized():
+        free,total=torch.cuda.mem_get_info();record['GPU_VRAM_USED_GIB']=(total-free)/shared.GIB
+    if extra:record.update(extra)
+    FOLDER.mkdir(parents=True,exist_ok=True)
+    path=FOLDER/f'{os.getpid()}_{ACTIVE["run"]}_{phase}.json'
+    path.write_text(json.dumps(record,indent=2),encoding='utf-8')
+    logging.info('H3SamplerToVAEResidencyProbe phase=%s path=%s',phase,path)
+    return record
+
+
+def observe_safe(phase,extra=None):
+    try:return snapshot(phase,extra)
+    except Exception as e:
+        logging.error('H3 transition snapshot %s failed: %s',phase,e)
+
+
+_original_load=mm.load_models_gpu
+_original_decode=MiniMaxH3VideoVAE.decode
+
+
+@functools.wraps(_original_load)
+def observed_load(models,*args,**kwargs):
+    state=ACTIVE
+    if not state or state.get('loaded') or not any(type(p.model) is MiniMaxH3VideoVAE for p in models):
+        return _original_load(models,*args,**kwargs)
+    observe_safe('B_BEFORE_VIDEO_VAE_LOAD',{'requested_memory_bytes':kwargs.get('memory_required',0)})
+    calls=[]
+    previous=sys.getprofile()
+    # Read call/return locals only during this existing load call. No lifecycle invocation.
+    def profile(frame,event,arg):
+        if frame.f_code is _original_load.__code__ and event=='return':
+            state['free_for_dynamic']=frame.f_locals.get('free_for_dynamic','UNPROVEN')
+        elif frame.f_code is mm.free_memory.__code__ and event=='return':
+            calls.append({'for_dynamic':frame.f_locals.get('for_dynamic'),
+                          'memory_required':frame.f_locals.get('memory_required'),
+                          'unloaded_count':len(arg) if isinstance(arg,list) else 'UNPROVEN',
+                          'unloaded_classes':[type(x.model.model).__name__ for x in arg] if isinstance(arg,list) else []})
+        if previous:previous(frame,event,arg)
+    sys.setprofile(profile)
+    try:result=_original_load(models,*args,**kwargs)
+    finally:sys.setprofile(previous)
+    state['loaded']=True;state['decisions']=calls
+    observe_safe('B2_VIDEO_VAE_LOADED',{'free_for_dynamic':state.get('free_for_dynamic','UNPROVEN'),'free_memory_decisions':calls})
+    return result
+
+
+@functools.wraps(_original_decode)
+def observed_decode(self,*args,**kwargs):
+    global ACTIVE
+    state=ACTIVE
+    if not state or not state.get('loaded') or state.get('decode_started'):
+        return _original_decode(self,*args,**kwargs)
+    state['decode_started']=True
+    observe_safe('C_VIDEO_VAE_DECODE_START',{'free_for_dynamic':state.get('free_for_dynamic','UNPROVEN'),'free_memory_decisions':state.get('decisions',[])})
+    try:return _original_decode(self,*args,**kwargs)
+    finally:
+        observe_safe('D_VIDEO_VAE_DECODE_END')
+        ACTIVE=None
+
+
+mm.load_models_gpu=observed_load
+MiniMaxH3VideoVAE.decode=observed_decode
+
+
 class H3SamplerToVAEResidencyProbe:
-    """Passive stand-in (candidate A): the production observer hooks
-    mm.load_models_gpu/VAE.decode; this build installs no hooks."""
-    def observe(self, latent):
-        logging.info('H3 sampler->VAE observer: passive candidate-A shim, not armed')
+    @classmethod
+    def INPUT_TYPES(cls):return {'required':{'latent':('LATENT',)}}
+    RETURN_TYPES=('LATENT',)
+    RETURN_NAMES=('latent',)
+    FUNCTION='observe'
+    CATEGORY='H3/diagnostics'
+    @classmethod
+    def IS_CHANGED(cls,**kwargs):return float('nan')
+    def observe(self,latent):
+        global ACTIVE
+        ACTIVE={'run':time.time_ns()}
+        observe_safe('A_SAMPLER_END')
         return (latent,)
 
 
-# Not a workflow node; empty mapping only avoids a false IMPORT FAILED.
-NODE_CLASS_MAPPINGS = {}
-
-
+NODE_CLASS_MAPPINGS={'H3SamplerToVAEResidencyProbe':H3SamplerToVAEResidencyProbe}

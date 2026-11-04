@@ -4,11 +4,11 @@
 
 ## 1. 交付物和已验证范围
 
-- `custom_nodes/`：18 个目录，其中 17 个含 `__init__.py` ComfyUI 入口；`h3_adaptive_host_warm_inplace` 是辅助源码目录，不应被当成独立可注册插件。
+- `custom_nodes/`：19 个目录，均含 `__init__.py`，作为 `custom_nodes` 下的并列目录安装；其中 `h3_tail12_quick` 提供尾部 12 Token 精修（工作流 `extra.h3_tail12=true` 时由前端自动注入，无单独开关）。
 - `workflows/H3_V30_RunningHub_CLEAN_NOLOOP.json`：186 主画布节点、240 连线、1 子图，84 个可执行类型（另 1 个子图引用标识）。
 - `docs/DEPENDENCIES.md`：7 个第三方插件上游和经过 Stage-D 关键文件 SHA256 核对的精确 Git 提交。**不含第三方插件源码**。
 - `docs/MODEL_INDEX.csv`：19 项模型及用途/目标目录/来源。权重、真实图片/视频、密钥和生产配置不随包分发。
-- `docs/LOCAL_E2E_RESULT.md`：Windows RTX 5090 D 隔离机功能实测历史记录（六段真实生成 541 秒，不设面向所有用户的 300 秒性能门槛）。当前提交在该次验收后修订了可选 V28 Gemma 模型路径，并补充了文档及第三方许可证，**未对本次修订重新完成 E2E**。
+- `docs/LOCAL_E2E_RESULT.md`：Windows RTX 5090 D 隔离机功能实测记录。当前快照（含尾 12）已重新实测：六段全部成功、逐段尾 12 产出/读取核对通过、合并 1263 帧，六段约 718 秒；不设面向所有用户的性能门槛。
 - `custom_nodes/H3_AudioUpgrade/vendor/LICENSE`：保留打包的上游 AudioRefine MIT 授权声明；不应把该上游代码认作自研首发。
 - 不包含独立 8210 编译器。旧 S4 Clean Rebase 属隐藏、停用的遗留能力，不列入主线验收。
 
@@ -21,7 +21,7 @@
 | 操作系统 | 原实测环境为 Windows；RunningHub Linux 容器需另行验证 |
 | ComfyUI | 需提供实际 core commit、`/system_stats` 和前端版本；审核包未锁死完整 core 镜像 |
 | Python/Torch/CUDA | 以平台镜像为准，需与 MiniMax H3、各插件和 GPU 匹配；不要未经测试直接升级 |
-| 自研节点 | 17 个带 `__init__.py` 的包，以及一个辅助目录，必须作为 `custom_nodes` 下的**并列目录**安装 |
+| 自研节点 | 19 个带 `__init__.py` 的包，必须作为 `custom_nodes` 下的**并列目录**安装 |
 | 第三方节点 | 七个仓库分别检出 `docs/DEPENDENCIES.md` 所列精确 SHA，再按各自说明安装 Python 依赖 |
 | MAINodes | 锁定 v1.0.5 / b99bb83，应用本包 `patches/` 中端口区间补丁 |
 | FFmpeg | `ffmpeg` 与 `ffprobe` 均须在 ComfyUI 进程的 PATH 中可调用（续接音频和合并使用） |
@@ -55,9 +55,9 @@ cp -a custom_nodes/. "$COMFYUI_DIR/custom_nodes/"
 
 ## 5. 验证顺序
 
-1. 静态：检查 18 个自研目录、固定第三方提交、MAINodes 补丁、工作流 186/240/1、Git SHA256 清单；留存 ComfyUI 核心/前端/Python/Torch/CUDA 真实版本。
-2. CPU：启动 ComfyUI，检查 `/object_info` 的 84 个**工作流实际需要的可执行类型**，排除子图 UUID 作为可安装包的误判；读取 JS 前端错误、Sidecar 初始化和 HTTP 路由。
-3. GPU：以测试图、明确费用上限测试单段、六段续接、39 帧保护、视频/双声道音频合并、模型动态卸载。不存在通用于低配置机器的 300 秒阈值；只记录真实性能与显存。
+1. 静态：检查 19 个自研目录、固定第三方提交、MAINodes 补丁、工作流 186/240/1、Git SHA256 清单；留存 ComfyUI 核心/前端/Python/Torch/CUDA 真实版本。
+2. CPU：启动 ComfyUI，检查 `/object_info` 的 84 个**工作流实际需要的可执行类型**及 5 个尾 12 节点类（由前端在提交时注入），排除子图 UUID 作为可安装包的误判；读取 JS 前端错误、Sidecar 初始化和 HTTP 路由。
+3. GPU：以测试图、明确费用上限测试单段、六段续接、尾 12 逐段产出/读取、39 帧保护、视频/双声道音频合并、模型动态卸载。不存在通用于低配置机器的 300 秒阈值；只记录真实性能与显存。
 4. Linux 上额外验证 `H3SelectiveTEUnload` 的 fail-closed 分支、运行路径、依赖与路由权限。出错不能宣称云端通过。
 
 **未验证状态**：RunningHub 云端安装、Linux 兼容性、付费 GPU 实际执行、所有可选模型与第三方软件完整许可证闭环，均仍需技术审核人员确认。
@@ -66,4 +66,4 @@ cp -a custom_nodes/. "$COMFYUI_DIR/custom_nodes/"
 
 公开 GitHub 只代表代码可浏览，**不等于授权对自研代码进行商业再分发、镜像复刻或许可转授**。本仓库没有统一的自研代码开源许可证；是否开源及商业授权需要权利人另外决定。第三方来源及许可证见 `docs/DEPENDENCIES.md`，打包的 AudioRefine 源码使用 `custom_nodes/H3_AudioUpgrade/vendor/LICENSE` 中的 MIT 条款。
 
-**重要隐私警告**：仓库当前 Git 历史中的早期提交包含修订前的 Windows 绝对模型路径。即使最新工作树已替换该路径，变更为 Public 后历史提交仍可能被任何人查看。公开前应使用经过审计的干净历史或重建仓库；只修订 HEAD 不构成历史清除。
+本仓库以干净历史重建后公开，不含私有研发仓库历史。
