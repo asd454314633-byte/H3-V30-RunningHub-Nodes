@@ -57,7 +57,7 @@
     "custom_nodes/H3_Prompt_Sidecar/reference_vision.py": "0bb311abaaaf52dda33f1f77543af72b8b96c2b68ac90a62aa1804f2af1f2a8f",
     "custom_nodes/H3_Prompt_Sidecar/request_guard.py": "7383dda27bf13f102376c11add1ee0065e5906d2ca3e52bc56562c7f0142821c",
     "custom_nodes/H3_Prompt_Sidecar/scene_inputs.py": "a3571bca4a330e6b15441e10c8d09689bb9d2847ab9ae69a790c0071ea1afec2",
-    "custom_nodes/H3_Prompt_Sidecar/six_resume.py": "2ae004b4715a3b717d0c59a702896c3a7c916683bc35dcfa7788e1e4aad76a11",
+    "custom_nodes/H3_Prompt_Sidecar/six_resume.py": "06083f8a75c71f6d8da390fb2437a2f828581ebe81bc2076ba06726a0ef7e746",
     "custom_nodes/H3_Prompt_Sidecar/six_ui.js": "368e3030bb4eab5eab5989121fcae1baf5cfffc67e5723a97bf2fa479e1eb096",
     "custom_nodes/H3_Prompt_Sidecar/web/h3_clone_compat.js": "5123709542df4395078a781278e6f0c93f4a4bead4a1cdd086d7f36fc2840066",
     "custom_nodes/H3_Prompt_Sidecar/web/h3_execution_policy.js": "6802cdf9e8377c5f93970743416079ebdcfc1d2e79531541489271da027afe21",

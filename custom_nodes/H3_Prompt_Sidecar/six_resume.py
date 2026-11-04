@@ -13,6 +13,39 @@ TAIL12_SCHEMA = "H3_TAIL12_V1"
 TAIL12_VIDEO_NODE = "h3_tail12_save"
 
 
+def retire_stale_tail12(root, project, index):
+    """Move a repaired prefix aside once its source latent has been overwritten.
+
+    seg_%05d.safetensors is replaced in place by every rerun, so a prefix whose
+    recorded source no longer matches the latent on disk can never become valid
+    again (e.g. a segment first run with tail-12 ON, then rerun with it OFF).
+    Raising on it would strand the new verified result forever; consuming it
+    would be wrong. Retire it (move, never delete) and let the caller continue
+    as "no repaired prefix". Returns the retired paths.
+    """
+    directory = project_dir(root, project)
+    stem = "seg_%05d_tail12" % int(index)
+    files = [directory / (stem + ext) for ext in (".json", ".safetensors")]
+    if not any(f.is_file() for f in files):
+        return []
+    accepted = directory / ("seg_%05d.safetensors" % int(index))
+    source = str(read_json(files[0], {}).get("source_sha256", "")).upper()
+    if source and accepted.is_file() and source == hashlib.sha256(accepted.read_bytes()).hexdigest().upper():
+        return []  # still describes the current latent: keep (validated by tail12_prefix)
+    target = directory / "_superseded" / "tail12_stale"
+    target.mkdir(parents=True, exist_ok=True)
+    tag = "%s_%d" % ((source or "nosource")[:12], int(time.time() * 1000))
+    moved = []
+    for f in files:
+        if f.is_file():
+            dest = target / ("%s_%s%s" % (stem, tag, f.suffix))
+            os.replace(f, dest)
+            moved.append(str(dest))
+    print("[tail12] retired stale prefix S%d (source latent was overwritten) -> %s"
+          % (int(index) + 1, target), flush=True)
+    return moved
+
+
 def tail12_prefix(root, project, index):
     """The durable repaired prefix written by H3Tail12Commit for one accepted segment.
 
@@ -392,6 +425,9 @@ def inspect_segment(root, project, index, require_accepted=True, expected_prompt
     # A repaired prefix is only valid while it still describes this exact accepted
     # latent; a successor that consumed it must be re-verified against it, not
     # against the raw seg_n.
+    # A prefix left over from an earlier run of this segment (its source latent
+    # was overwritten) is retired here instead of failing every later check.
+    retire_stale_tail12(root, project, index)
     repaired_prefix = tail12_prefix(root, project, index)
     # supersede=True 仅用于 SUCCESS 收口提交：此时提交的是新 latent，磁盘前缀
     # 已由 tail12_prefix 内部校验与磁盘 latent 一致；拿旧回执与新前缀比较必然
