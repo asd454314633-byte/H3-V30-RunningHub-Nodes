@@ -760,7 +760,7 @@ function installInner(node){
   /* ---------- 与 six_ui 保持同步 ---------- */
   root.addEventListener('sixchange',()=>{refreshLive()});
   root.addEventListener('sixrecoverydisplay',()=>{renderAll()});
-  root.addEventListener('sixsegmentselect',event=>{const index=Number(event.detail?.index);if(Number.isInteger(index)&&index>=0&&index<6&&index!==cur){cur=index;if(mode==='ov')setMode('edit');renderAll()}});
+  root.addEventListener('sixsegmentselect',event=>{if(event.detail?.auto)return;/* 执行流程自动推进：不抢焦点、不切换总览/编辑，也不改当前查看段 */const index=Number(event.detail?.index);if(Number.isInteger(index)&&index>=0&&index<6&&index!==cur){cur=index;if(mode==='ov')setMode('edit');renderAll()}});
   root.addEventListener('input',event=>{if(event.target.matches?.('.six-prompt'))refreshLive()});
 
   /* ---------- 周期刷新（状态/进度/组合入） ---------- */

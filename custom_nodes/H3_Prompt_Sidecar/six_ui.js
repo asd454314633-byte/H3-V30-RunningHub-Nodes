@@ -80,7 +80,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
     find('.six-generate').disabled=directorBusy||!taskReady;find('.six-run-all').disabled=inBatch||busy;
     find('.six-stop').disabled=!inBatch;find('.six-memory-confirm').disabled=directorBusy||!group;
   }
-  function select(index){selected=index;cards.forEach((c,i)=>{c.card.classList.toggle('six-selected',i===index);c.use.setAttribute('aria-pressed',String(i===index))});controls();root.dispatchEvent(new CustomEvent('sixsegmentselect',{detail:{index}}));if(!inBatch){message.textContent=`已使用第${index+1}段；其他段与本次执行隔离`;delete message.dataset.state}}
+  function select(index,opts){const auto=opts?.auto===true;selected=index;cards.forEach((c,i)=>{c.card.classList.toggle('six-selected',i===index);c.use.setAttribute('aria-pressed',String(i===index))});controls();root.dispatchEvent(new CustomEvent('sixsegmentselect',{detail:{index,auto}}));if(!inBatch){message.textContent=`已使用第${index+1}段；其他段与本次执行隔离`;delete message.dataset.state}}
   function persist(){root.dispatchEvent(new Event('sixchange'));draftStorage.write('texts',cards.map(c=>c.area.value));draftStorage.write('segment-settings',cards.map((_,i)=>segmentSettingsAt(i)))}
   const cards=Array.from({length:6},(_,i)=>{
     const card=document.createElement('section');card.className='six-card';card.innerHTML=`<h3>第${i+1}段</h3><small class="six-card-status">未生成</small><textarea class="six-prompt" aria-label="第${i+1}段提示词" placeholder="写出本段画面、主体动作与镜头变化…" spellcheck="false"></textarea><div class="six-segment-parameters"><label>宽（留空沿用画布）<input class="six-segment-width" type="number" min="32" max="16384" step="32" aria-label="第${i+1}段宽"></label><label>高（留空沿用画布）<input class="six-segment-height" type="number" min="32" max="16384" step="32" aria-label="第${i+1}段高"></label><label>帧数/时长（17k+5；依画布FPS）<input class="six-segment-length" type="number" min="5" max="3600" step="17" placeholder="留空沿用画布" aria-label="第${i+1}段帧数/时长"></label></div><div class="six-actions"><button class="six-use" aria-pressed="false">使用</button><button class="six-execute">执行</button></div><small class="six-count">本次会话执行：0次</small>`;find('.six-prompts').append(card);
@@ -263,7 +263,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
     if(!Number.isInteger(index)||index<0||index>=cards.length)throw Error('无效的当前段号');
     const blocked=runBlockReason(index);if(blocked)throw Error(blocked);
     activeSegments.add(index);controls();
-    select(index);
+    select(index,{auto:true});
     try{return await operation(async()=>{
       await saveForRun(index);
       const cross=globalThis.app?.graph?._nodes?.find(n=>n.type==='H3SixDirectorState')?.properties?.h3_cross_group?.enabled===true;
@@ -466,7 +466,7 @@ export async function mountSixDirector(root, {execute=null, base='', executionSt
         if(stopping){retainResumePoint(i);chainEvent('STOPPED',{nextSegment:i+1});message.textContent='连续生成已停止；可从所选段继续';return}
         chain.currentSegment=i+1;chain.state='RUNNING';
         liveSegment.textContent=i===0?'当前执行：S1（重新起画）':`当前执行：S${i+1}（接 S${i} 尾部）`;
-        message.textContent=`连续生成：正在执行第${i+1}/6段；上一段成功后自动推进`;select(i);
+        message.textContent=`连续生成：正在执行第${i+1}/6段；上一段成功后自动推进`;select(i,{auto:true});
         find('.six-run-all').textContent=`连续生成中：第${i+1}/6段`;
         // Freeze only the segment about to submit; later edits remain live.
         try{await runSegment(i,cards[i].area.value,{...executionOptions(i,first),continuous:true,independent:false,start_mode:'resume'})}
