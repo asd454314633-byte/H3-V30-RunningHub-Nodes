@@ -305,9 +305,14 @@ class H3Tail12Commit:
         if not torch.equal(saved_audio, flat_audio):
             raise ValueError("尾12修复改动了音频，拒绝覆盖修复记录：S%d" % (index + 1))
         source_sha = sha256_file(accepted)
-        params = read_json(Path(params_json), None) if str(params_json).strip().startswith("{") else None
+        # params_json is a JSON string from the frontend (not a file path).
+        raw_params = str(params_json or "").strip() or "{}"
+        try:
+            params = json.loads(raw_params)
+        except ValueError as exc:
+            raise ValueError("尾12参数不是合法 JSON，拒绝写入修复记录：S%d" % (index + 1)) from exc
         if not isinstance(params, dict):
-            params = {}
+            raise ValueError("尾12参数必须是 JSON 对象，拒绝写入修复记录：S%d" % (index + 1))
         params.update({"prefix_tokens": PREFIX_TOKENS, "audio_steps": AUDIO_STEPS,
                        "video_mask": "all_ones", "audio_mask": "all_zeros"})
         repaired.parent.mkdir(parents=True, exist_ok=True)

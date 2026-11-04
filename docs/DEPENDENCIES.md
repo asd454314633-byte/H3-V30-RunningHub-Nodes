@@ -19,4 +19,4 @@ Licenses: MAINodes GPL-3.0-or-later; Ref2VA-VSA Apache-2.0; pinned old obvpm Apa
 Third-party source and model weights are not redistributed by this reviewer repository.
 
 Audit scope: representative source SHA-256 files matched the Stage-D candidate after accounting for Windows CRLF; not every file or binary was checked.
-Local functional results: `docs/LOCAL_E2E_RESULT.md`. Six-segment time 541 s is a measurement, not a public performance deadline. RunningHub cloud validation remains pending.
+Local functional results: `docs/LOCAL_E2E_RESULT.md`. Six-segment time ~718 s (current snapshot, tail-12 refinement included; the earlier 541 s run without tail-12 is superseded) is a measurement, not a public performance deadline. RunningHub cloud validation remains pending.
