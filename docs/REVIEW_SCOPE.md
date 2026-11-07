@@ -127,3 +127,10 @@ Never treat successful import as successful end-to-end generation.
 - 本次已完成：只读对照 HEAD 和文件树；关键 P0 代码路径逐一核对；识别原审计清单遗漏项；将核对项写入已有的 docs/REVIEW_SCOPE.md。
 - 本次未做：**任何 V2 源码移植、验证运行、SHA256_MANIFEST 重建、RunningHub 平台操作或公开 main 修改**。
 - 注意：本审核清单是待办追踪和核查依据，**不是**已通过验收的声明；每项完成时须更新状态、提交证据 URI、代码 commit/SHA 和真实测试结论。
+
+## H. 文件级差异盘点归档（2026-11-07）
+
+- [完整更新优化缺口清单](./REVIEWER_V2_GAP_INVENTORY_20261107.md)：G01–G08 功能组、R01–R09 发布门槛、回归边界与逐文件处理记录。
+- [229 条文件级分类索引（JSON）](./REVIEWER_V2_FILE_TRIAGE_20261107.json)：固定公开/私有 SHA、每个路径的分类、处置建议和来源链接。
+- 文件级差异分类已完成，但**未移植任何 Reviewer V2 功能、未执行其 CPU/GPU 验收，RunningHub 云端 E2E 仍未确认**。
+- 本节仅为文档索引；上文原有 43 个审核勾选项及其状态保持不变，公开 `main` 未更改。
