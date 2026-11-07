@@ -130,7 +130,12 @@ Never treat successful import as successful end-to-end generation.
 
 ## H. 文件级差异盘点归档（2026-11-07）
 
-- [完整更新优化缺口清单](./REVIEWER_V2_GAP_INVENTORY_20261107.md)：G01–G08 功能组、R01–R09 发布门槛、回归边界与逐文件处理记录。
+- [完整更新优化缺口清单](./REVIEWER_V2_GAP_INVENTORY_20261107.md)：固定快照 G01–G08、2026-11-07 新增 G09、R01–R09 发布门槛、回归边界与逐文件处理记录。
 - [229 条文件级分类索引（JSON）](./REVIEWER_V2_FILE_TRIAGE_20261107.json)：固定公开/私有 SHA、每个路径的分类、处置建议和来源链接。
 - 文件级差异分类已完成，但**未移植任何 Reviewer V2 功能、未执行其 CPU/GPU 验收，RunningHub 云端 E2E 仍未确认**。
 - 本节仅为文档索引；上文原有 43 个审核勾选项及其状态保持不变，公开 `main` 未更改。
+
+## I. 基线后新增功能缺口（2026-11-07 晚）
+
+- [ ] **G09 / OmniRef8 LoRA 多选与结构兼容预检**：私仓 `2491716` 含 2 个新模块 + 4 个联动源码文件，公开 `main@7331d54` 缺该功能。已记录 8207 六段 6/6 SUCCESS 回执与私仓测试报告；不能据此认定 Reviewer V2 或 RunningHub 云端通过。详见 [G09 详细清单](./REVIEWER_V2_GAP_INVENTORY_20261107.md) 和 [JSON 的 `post_baseline_updates`](./REVIEWER_V2_FILE_TRIAGE_20261107.json)。
+- 本段为后补事项，原 A–F 的 43 个勾选项原样保留；229 条原对账不重新计数。待处理期间禁止把 LoRA 代码直接改写公开 `main`。

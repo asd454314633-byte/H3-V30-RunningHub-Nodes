@@ -2706,5 +2706,78 @@
       "仅在独立审核分支归档审计文件；无生产源码或公开 main 修改",
       "未实际运行 41 个测试文件"
     ]
-  }
+  },
+  "post_baseline_updates": [
+    {
+      "id": "G09",
+      "name": "OmniRef8 LoRA 多选及结构匹配预检",
+      "classification": "POST_BASELINE_CONFIRMED_GAP",
+      "priority": "P1_FEATURE_P0_GUARD_INTEGRATION",
+      "public_baseline_sha": "7331d54d3e273b6a1e60f7fe6bb8ccdcc996a040",
+      "private_feature_commit": "2491716820f31b99a974edcd4985f5cbda65fa82",
+      "excluded_from_frozen_229": true,
+      "feature_files": [
+        {
+          "path": "custom_nodes/h3_workflow_helpers/lora_stack.py",
+          "kind": "NEW_MODULE",
+          "description": "H3LoraStack 节点、结构兼容性预检和只读接口",
+          "public_status": "ABSENT",
+          "private_source": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/source/h3_workflow_helpers/lora_stack.py"
+        },
+        {
+          "path": "custom_nodes/h3_workflow_helpers/web/h3_lora_console.js",
+          "kind": "NEW_MODULE",
+          "description": "控制台多选、强度设置、状态与提交图插入/旁路",
+          "public_status": "ABSENT",
+          "private_source": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/source/h3_workflow_helpers/web/h3_lora_console.js"
+        },
+        {
+          "path": "custom_nodes/h3_workflow_helpers/__init__.py",
+          "kind": "MODIFIED",
+          "description": "注册 H3LoraStack 与路由",
+          "public_status": "OLDER_VERSION_WITHOUT_G09",
+          "private_source": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/source/h3_workflow_helpers/__init__.py"
+        },
+        {
+          "path": "custom_nodes/h3_workflow_helpers/web/h3_foolproof_v3_dashboard.js",
+          "kind": "MODIFIED",
+          "description": "挂载与刷新 LoRA 控制台",
+          "public_status": "OLDER_VERSION_WITHOUT_G09",
+          "private_source": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/source/h3_workflow_helpers/web/h3_foolproof_v3_dashboard.js"
+        },
+        {
+          "path": "custom_nodes/h3_partial_diffusion_evict/__init__.py",
+          "kind": "MODIFIED",
+          "description": "只对 OmniRef8 合法插入位置放行，禁止跨架构绕过守护",
+          "public_status": "OLDER_VERSION_WITHOUT_G09",
+          "private_source": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/source/h3_partial_diffusion_evict/__init__.py"
+        },
+        {
+          "path": "custom_nodes/H3_Prompt_Sidecar/web/h3_six_receipt_contract.js",
+          "kind": "MODIFIED",
+          "description": "续跑指纹纳入 LoRA 配置变化，保持六段链一致性",
+          "public_status": "OLDER_VERSION_WITHOUT_G09",
+          "private_source": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/source/H3_Prompt_Sidecar/web/h3_six_receipt_contract.js"
+        }
+      ],
+      "evidence": {
+        "report": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/REPORT.md",
+        "six_receipts": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/8207_QTEST_8207_LORA1_six_acceptance.json",
+        "synthetic_test_script": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/scripts/t_newlora.py",
+        "source_bundle": "https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/source/",
+        "local_scope": "8207 V30/OmniRef8/长歌关闭/单个兼容 LoRA + 不兼容 Wan",
+        "receipt_observation": "S1–S6 SUCCESS; S1–S5 tail12_prefix present",
+        "report_claims": "私仓报告称每段应用 realism×0.8、Wan 每段跳过、守护 6/6 PASS；此次未读取实时节点日志独立核对每段权重",
+        "not_tested": [
+          "人工画质",
+          "长歌开启的六段带 LoRA",
+          "尾12最终合并视频及音频",
+          "RunningHub 云端部署",
+          "其他设备/低显存环境"
+        ]
+      },
+      "release_gate": "六文件成组选择性移植，保留公开 NOLOOP/dashboard 改动；隔离 Linux 导入与节点/API/提交图/守护/fingerprint/旁路/新旧文件缓存/错误回退；授权 GPU 六段、合并以及性能比较；自研 LoRA 来源和模型权重不打包"
+    }
+  ],
+  "post_baseline_policy": "229 条旧清单的 counts/records 和两个固定 SHA 保持冻结；2026-11-07 后新晋升内容单列 post_baseline_updates，不能混算原文件数量或虚报新版验收"
 }

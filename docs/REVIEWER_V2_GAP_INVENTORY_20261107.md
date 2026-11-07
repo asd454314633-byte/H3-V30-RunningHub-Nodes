@@ -21,7 +21,7 @@
 - `REVIEW_RULES`：1 个，需选取导演规则增量。
 - `REVIEW_HOOK`：1 个同路径文件；另一项公开独有钩子需一起审查。
 
-**结论：原 76 个待归类文件没有发现新增的生产功能遗漏；当前仍以 G01–G08 八组为后续移植和文档修复主线。** 此结论仅覆盖固定 SHA 的源码文件级分析；动态依赖、第三方节点实际安装、逐函数回归和云端 E2E 仍未确认。
+**结论：原 76 个待归类文件没有发现新增的生产功能遗漏；固定快照的 G01–G08 八组仍为原审计主线；2026-11-07 晚另证实 **G09 LoRA** 为基线后新增缺口，已单列，不重算旧文件数。** 此结论仅覆盖固定 SHA 的源码文件级分析；动态依赖、第三方节点实际安装、逐函数回归和云端 E2E 仍未确认。
 
 **69 个私有独有文件已完成用途初分：** 41 个测试、8 个本机核心/补丁、6 个私有运行数据与配置、5 个诊断资源、4 个已禁用实验件、1 个独立编译器桥、1 个安全接口 HOLD、1 个确认缺失功能 `tail12_select.py`、1 个私有候选说明、1 个待确认的可选 `websocket_image_save.py`。
 
@@ -50,6 +50,18 @@
 | G06 | **P0 / CONFIRMED_GAP**：尾12自由合并选择 | 新增 `H3_Prompt_Sidecar/tail12_select.py`、联动 `free_merge.py`、`web/h3_native_merge.js`、`web/h3_six_segment_director.js` | `project_id` 透传，严格/宽松回执与哈希、血缘、篡改/缺失回退、S1–S5 选修复版，S6 选正式版、音视频完整 |
 | G07 | **P1 / REVIEW_RULES**：导演镜头续接规则 | `H3_Prompt_Sidecar/frozen_h3_rules.md` | 仅提取续接渐变规则，不覆盖公开包现有脱敏/版权边界 |
 | G08 | **P1 / DOC_GAP**：Spark-H3 / LightVAE 的依赖和模型索引 | `docs/DEPENDENCIES.md`、`docs/MODEL_INDEX.csv`，不是默认复制权重 | 真实上游、版本、兼容矩阵和哈希有据可查；默认关闭路径不宣称平台已安装 |
+| G09 | **P1 / POST_BASELINE_CONFIRMED_GAP**：OmniRef8 LoRA 多选 + 结构预检（2026-11-07 新增） | 2 个新模块、4 个联动文件；源自私仓 `2491716`，不属于冻结的 229 条 | 六文件成组移植；非兼容项跳过但不破坏守护；NOLOOP 旁路与续跑指纹保持；独立 CPU、六段 GPU、长歌/尾12合并及云端授权验收 |
+
+
+### G09 补录｜2026-11-07 基线后 LoRA 新功能（不可混入 229 旧差异）
+
+- **发现方式**：公开 `main@7331d54` 的源码树缺少 `h3_workflow_helpers/lora_stack.py` 和 `web/h3_lora_console.js`；公开原有 4 个联动文件未包含 G09 接入。私仓最新 `2491716` 已附独立六文件候选和验收回执。原 229 条对比的是此前私仓 `c5658e6` 快照，故**原 229/229 统计不变，另立基线后增量 G09**。
+- **新增模块**：`custom_nodes/h3_workflow_helpers/lora_stack.py`（节点/只读兼容预检/API）；`custom_nodes/h3_workflow_helpers/web/h3_lora_console.js`（多选 UI、强度、搜索、开关与动态图注入）。
+- **必须联动的四个文件**：`custom_nodes/h3_workflow_helpers/__init__.py`（注册与路由）；`custom_nodes/h3_workflow_helpers/web/h3_foolproof_v3_dashboard.js`（面板挂载及刷新）；`custom_nodes/h3_partial_diffusion_evict/__init__.py`（合法 OmniRef8 分支守护）；`custom_nodes/H3_Prompt_Sidecar/web/h3_six_receipt_contract.js`（六段继续生成的指纹合同）。不可仅复制两个新模块。
+- **证据边界**：私仓 [G09 功能与隔离测试报告](https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/REPORT.md) 记录 LoRA 结构预检、合成 5 类检测、隔离 GPU 的单/双 LoRA 对照和 8207 实际页面测试；[8207 六段回执](https://github.com/asd454314633-byte/H3-Director-Private-Handoff/blob/2491716820f31b99a974edcd4985f5cbda65fa82/updates/2026-11-07-lora-multiselect/8207_QTEST_8207_LORA1_six_acceptance.json) 可独立核对 S1–S6 六个 SUCCESS 与 S1–S5 尾12前缀。**“每段 LoRA 实际权重应用”和“5/5 新 LoRA 判定”此轮主要依据私仓报告，提交回执本身不含逐段权重应用日志；不要把报告性证据等同独立重复实测。**
+- **已报告运行配置**：8207，V30，OmniRef8，vsa/原版解码，长歌关闭，realism-people 强度 0.8 + 故意加入不兼容 Wan；报告记录单 LoRA 主采样步速 9.6–10.6 秒/步，不能据此宣称所有叠加数都无损耗，隔离双 LoRA 曾约 +24%。
+- **待验收**：① LoRA 图节点注册、接口、无 LoRA 图不变、非 OmniRef8 自动旁路、非法插入守护拒绝；② 与公开 NOLOOP 和现有 E1/E3/E5/E6、尾12修复及 39 帧保护协同；③ 文件刷新、同名覆盖、子目录、结构/形状不匹配、部分匹配与错误回退；④ 工作流保存/重载、指纹/续跑和六段六次应用证据；⑤ 长歌开启、尾12正式合并音视频、画质人工确认；⑥ Linux/云端资源和扩展加载、无写死单机路径。
+- **当前裁定**：`G09_CONFIRMED_GAP` / `LOCAL_8207_E2E_REPORTED_PASS` / `RELEASE_V2_NOT_TESTED` / `RUNNINGHUB_CLOUD_NOT_TESTED`；**不改公开 main，不生成云端可运行声明**。
 
 ## 3. 另外必须追踪的阻断与边界（不是新增优化）
 
@@ -111,7 +123,7 @@
 ## 7. 后续实际处理顺序（阶段 Gate）
 
 1. **Gate 0：本地盘点完成**。固定两个提交 SHA，保留 229 条路径级记录和分组决策；**无源码更新**。
-2. **Gate 1：按 G01–G06 做最小补丁计划**。每项记录：受影响文件、函数/节点、公开与私有源哈希、输入输出契约、NOLOOP 适配、回退策略；G07 单独移植规则，G08 仅补有来源的文档。
+2. **Gate 1：按 G01–G06 + 基线后 G09 做最小补丁计划**。每项记录：受影响文件、函数/节点、公开与私有源哈希、输入输出契约、NOLOOP 适配、回退策略；G07 单独移植规则，G08 仅补有来源的文档。
 3. **Gate 2：先解除 B01/B02/B03/B05 风险**。所有本机硬编码路径/Token/媒体/提示词/模型注册表/官方 Skill 授权逐项检查，必要时隔离于新的干净发行历史。
 4. **Gate 3：隔离 CPU/前端验证**。固定 ComfyUI/Python/Torch、7 个第三方依赖、84 个静态类、Store/Pick、5 个尾12类、Sidecar API、UI 开关、GraphToPrompt、Linux 兼容、FFmpeg。`84/89/91` 不得混算。
 5. **Gate 4：在授权隔离 GPU 环境真实测 S1–S6**。E1–E6 功能开启/关闭、错配回退、重跑、防死锁、尾12血缘/哈希与合并 A/V，记录 commit、工作流 SHA、逐段结果；本地结果不能冒充 RunningHub 云端结果。
@@ -388,6 +400,6 @@
 
 ### 已完成与未完成的边界
 
-- 文件级归类：**229/229 已登记处理建议，148/148 不同 Blob 已有初步性质判定，76/76 原 REVIEW_FILE 已闭环**。
-- 正式可部署的更新优化：**0 项在本轮移植或实测**；G01–G08 全部仍须经过对应 Gate。
+- 文件级归类：**229/229 已登记处理建议，148/148 不同 Blob 已有初步性质判定，76/76 原 REVIEW_FILE 已闭环**；基线后 G09 另计 6 个候选源码，不改本表 229 项口径。
+- 正式可部署的更新优化：**0 项在本轮移植或实测**；G01–G09 全部仍须经过对应 Gate（G09 为基线后增量）。
 - 本补充清单与 JSON 索引归档在 GitHub 审核分支；`docs/REVIEW_SCOPE.md` 继续保留原要求，公开 `main` 不改动。
