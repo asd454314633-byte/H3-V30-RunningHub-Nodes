@@ -19,3 +19,7 @@ and cloud GPU performance have never been validated on RunningHub.
 
 An independent 8210 compiler is not a required part of this review.
 Never treat successful import as successful end-to-end generation.
+
+## 2026-11-09 Pending update audit
+
+See [PENDING_UPDATES_CN.md](PENDING_UPDATES_CN.md) for evidence-graded source differences, platform blockers, and tests. Later single-decode tail-12, prompt preloading and cross-group continuation are **not yet synchronized** in this public review snapshot. The old "3 missing optional models" statement is not reproduced by the present filename-only comparison (18 workflow .safetensors names covered by 19 index entries). Cloud GPU remains NOT_TESTED.
