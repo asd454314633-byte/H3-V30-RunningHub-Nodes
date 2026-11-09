@@ -3,7 +3,7 @@
   "source": "8207 production code tree (read-only copy, 2026-11-04) incl. tail-12 refinement",
   "files": {
     ".gitignore": "4e7e47b4bb83d961de59f37bb0bbd44ea72b231deeda43f2a597309e10627d38",
-    "README.md": "a4d9769576a1c89ac7a2c317e159810898fabdc377cc6edf286c7db92aa786c1",
+    "README.md": "1cfd2d2b71a9dc3aca960d995aac5f29def63458538d1471abb4f6f8f04be7aa",
     "custom_nodes/H3_Audio8Step/__init__.py": "bceea6eefae1a3c46e69dfc95ccaa861c63b6debe90148a2992ca2c1054196eb",
     "custom_nodes/H3_Audio8Step/nodes.py": "c197660d42b35185f74b2c5ab678e28995467aca695a4de4be65158f768142d6",
     "custom_nodes/H3_Audio8Step/web/audio8.js": "ee8bb4b1114a97198251937c4180d757bc2ffc34fbaee00c59073f0380f17e9b",
@@ -160,12 +160,13 @@
     "custom_nodes/h3_workflow_helpers/web/h3_workflow_registry_v1.js": "731caf30e64838d1983ca86a273ec66d4f78f344d3d145f6bb8570bc836880af",
     "custom_nodes/h3_workflow_helpers/web/h3_workflow_ux.js": "812f51f2bc276b93bbfa77ca12cc6208d7a50ae41be6b692b23ebea9570aafec",
     "docs/DEPENDENCIES.md": "f2afe373522f78b2d13f3f84e982e3799a903db547479a9cd1bec172a885d61a",
-    "docs/DEPLOYMENT_CN.md": "527da0326b8ccdb2a8fa845db8091afbf03b2cf60c9e71d28d0d6f96e0a4dfa4",
+    "docs/DEPLOYMENT_CN.md": "c29f7b4dccef25d655e82fb1c2b111d031e45bf015c8a5a67552dc385db200c1",
     "docs/LOCAL_E2E_RESULT.md": "8eb76ae1e6989c964303d1bbd98cf95f31e4043bd3208a403a5b749aade2f1d2",
     "docs/MODEL_INDEX.csv": "29f9319b9e576345050676ccd5112b1f087670c23f970f578dfc058c4ccee3d7",
-    "docs/REVIEW_SCOPE.md": "1a8a43197be14cedce364004da934065139b2d2d15fb7b01e9281dca934da7fc",
+    "docs/REVIEW_SCOPE.md": "df3980b95f5fa7bfa88387d31338fe342e4fd737a1333ef5e6d04c1448aae8da",
     "patches/ComfyUI-MAINodes_v1.0.5_timeline_port_range.patch": "82cecc37fa4da870e89ba778150af3b3d53f5782ce01311275958de08468f4db",
-    "workflows/H3_V30_RunningHub_CLEAN_NOLOOP.json": "b3ce3a87ddf8ba2e04140082a63b0855bbaf63da947bb58168651b136c1934e1"
+    "workflows/H3_V30_RunningHub_CLEAN_NOLOOP.json": "b3ce3a87ddf8ba2e04140082a63b0855bbaf63da947bb58168651b136c1934e1",
+    "docs/PENDING_UPDATES_CN.md": "06058751759ebf497a28d7d6e8842d353d0a6908a82a8580cf0e9b42034ded67"
   },
   "first_party_packages": [
     "H3_Audio8Step",
@@ -247,5 +248,6 @@
   ],
   "note_line_endings": "files whose only difference from the previous snapshot was CRLF/LF keep the previous bytes",
   "third_party_code_included": false,
-  "production_files_modified": false
+  "production_files_modified": false,
+  "docs_revision": "2026-11-09: review checklist only; runtime release and cloud execution unchanged"
 }
