@@ -2,6 +2,10 @@
 
 **此仓库为可供技术审核的源码快照，尚未验证 RunningHub 云端部署；公开可见不等于开源授权。**
 
+## 2026-11-09 待更新与审核清单
+
+已完成公开审核包与后续研发版本的差异核对，新增 [待更新与验收清单](docs/PENDING_UPDATES_CN.md)。涉及尾12单次解码、六段提示词预载、跨组续接及 RunningHub 云端权限；**只是文档审核，不代表这些功能已同步或云端通过。**
+
 ## 内容
 - `custom_nodes/`：19 个项目目录，覆盖导演台、漂移锚定、音频、Native Continuation、**尾部 12 Token 精修（`h3_tail12_quick`）**、Sidecar、前端 JS、缓存与辅助模块。
 - `workflows/H3_V30_RunningHub_CLEAN_NOLOOP.json`：脱敏工作流，186 个节点、240 条连线、1 个子图；`extra.h3_tail12=true`。
