@@ -46,7 +46,7 @@ cp -a custom_nodes/. "$COMFYUI_DIR/custom_nodes/"
 
 ## 4. 模型和配置
 
-按 `docs/MODEL_INDEX.csv` 将主路线模型放入 `ComfyUI/models/diffusion_models`、`text_encoders`、`vae`、`pdd_acc` 等对应目录。模型文件名与工作流引用必须一致。模型索引包含可选分支；本地报告另指出有 3 个仅由默认关闭的可选节点引用的模型未列入清单，使用那些分支时应再补来源和哈希。
+按 `docs/MODEL_INDEX.csv` 将主路线模型放入 `ComfyUI/models/diffusion_models`、`text_encoders`、`vae`、`pdd_acc` 等对应目录。模型文件名与工作流引用必须一致。模型索引包含可选分支；2026-11-09 静态复核：本工作流（含子图）可枚举的 18 个不同 `.safetensors` 文件名已全部列入当前 19 项索引，旧报告所称“另有3个缺项”不再作为当前确认的缺口。此结果只证明文件名覆盖，不证明文件实际存在、路径/哈希/授权完整；详见 `docs/PENDING_UPDATES_CN.md`。
 
 - 本包 `h3_conditioning_prebake/model_registry.json` 内容为 `[]`：仅满足导入时的空配置要求，不是现场模型部署清单。根据平台实际模型位置配置所需的合法注册项，不要复制原机器私有路径。
 - Sidecar 的 `H3_SIDECAR_CONFIG`、`H3_SIDECAR_DATA` 及提供方凭据等应由平台以环境变量/密钥管理器注入；**绝不提交实际 key、`sidecar.ini`、私人图片、生成记录**。
