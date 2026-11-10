@@ -5,10 +5,10 @@ import {restoredExecutionPolicy} from './h3_execution_policy.js?v=20261024savedp
 import {api} from '../../../scripts/api.js';
 import {sixIdentity,scopedSixStorage} from '/extensions/H3_Prompt_Sidecar/six_identity.js?v=20261025identity1';
 import {uploadGuide,previewGuide,guideImageURL,watchGuideFrames} from './h3_six_guides.js?v=20261101sixfix2';
-import {executeVisiblePrompt} from './h3_six_execute.js?v=20261101longsong1';
+import {executeVisiblePrompt} from './h3_six_execute.js?v=20261108crossOff2';
 import {fingerprintWithPredecessor,verifyNativeReceipt} from './h3_six_receipt_contract.js?v=20261101resume3';
 import {applySegmentSettingsSafe} from './h3_task_workflow.js?v=20261101unblock1';
-import {installNativeMerge,beforeSixExecution} from './h3_native_merge.js?v=20261101sixfix2';
+import {installNativeMerge,beforeSixExecution} from './h3_native_merge.js?v=20261105tail12sel';
 import {readJsonResponse} from './h3_json_response.js?v=p0fix1';
 
 import {SIX_MIN_WIDTH,installSixWidthContract} from './h3_six_width_contract.js?v=20261006d';
@@ -394,7 +394,7 @@ async function mount(node) {
   for(const name of ['pointerdown','pointerup','mousedown','mouseup','click','wheel','keydown','keyup'])root.addEventListener(name,event=>event.stopPropagation());
   try{
     await restoreProductionIdentity(node);
-    const {mountSixDirector}=await import('/h3-director/six_ui.js?v=20261101fresh2');
+    const {mountSixDirector}=await import('/h3-director/six_ui.js?v=20261107remaining1');
     const execute=async(...args)=>{await node.__h3EditSync?.catch(()=>{});await beforeSixExecution(root);const id=saveVideoNodeId();const result=await executeVisiblePrompt(...args);return {...result,save_video_node_id:id,superseded:result.execution_version&&result.execution_version!==node.properties.h3_prebake_binding?.execution_version}};
     const readReceiptJSON=async(path,optional=false)=>{let response;try{response=await api.fetchApi(path)}catch(error){throw Error(`回执请求连接失败：${path}｜${(error&&error.message)||error}`)}if(optional&&response.status===404)return null;const value=await readJsonResponse(response,path,{optional404:optional,empty404AsObject:true,label:'回执读取 '});if(!response.ok)throw Error((value&&value.error)||`读取回执失败：${path}｜HTTP ${response.status} ${response.statusText}`);return value;};
     const fingerprintSegment=async(index,text,options)=>{const output=structuredClone((await app.graphToPrompt()).output);applySegmentSettingsSafe(output,options.segment_settings||{});const identityRefs=await prepareIdentity(output,index);text+=identityRefs.suffix;const seed=app.graph.getNodeById(142)?.widgets?.[1]?.value||'fixed';return fingerprintWithPredecessor(output,text,options.segment_settings||{},seed,index,options,readReceiptJSON);};

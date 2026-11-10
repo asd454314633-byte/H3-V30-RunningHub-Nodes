@@ -45,6 +45,31 @@ export function anchorMean(extra, index) {
   return Number.isFinite(value) && value >= 0 && value <= 1 ? value : 1.0;
 }
 
+// 漂移锚定参数（2026-11-06 E6）：默认“保色”做法——只用均值校正防人物逐段变脏/显老/变硬，
+// 去掉其中会改亮度/颜色的分量（不再把近景拉白），并关闭 6×4 分格纹理带（近景脸部黄斑/糊脸的来源）。
+// 旧做法仅在工作流 extra.h3_anchor_legacy===true 时使用（界面不提供，供回退对照）；新做法不读 h3_anchor_mean。
+// 2026-11-08 闪烁修复：新做法加 mean_phase_pooled——均值校正只对齐全局通道均值，不再按 t%5 五相位逐类对齐，
+// 避免把锚点（尤其 S4 自动换锚后）的五相位场注入 S5/S6 造成 17 帧周期闪烁。工作流 extra.h3_anchor_phase_classwise===true 可回退旧的逐相位对齐。
+// 2026-11-08 锚定强度可调：新做法（相位汇总）的均值校正强度取工作流 extra.h3_anchor_pooled_strength，
+// 默认 0.7（用户看片后裁决；0.7 未通过事先标准中的 S4 闪烁与 S5 纹理两条，见报告第 12–13 节）。
+// 逐相位回退（h3_anchor_phase_classwise）保持旧行为固定 1.0；legacy 做法不变。
+export const ANCHOR_POOLED_STRENGTH_DEFAULT = 0.7;
+export function anchorPooledStrength(extra) {
+  const raw = extra?.h3_anchor_pooled_strength;
+  if (raw === undefined || raw === null || raw === '') return ANCHOR_POOLED_STRENGTH_DEFAULT;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 && value <= 1 ? value : ANCHOR_POOLED_STRENGTH_DEFAULT;
+}
+
+export function driftAnchorParams(extra, index) {
+  if (extra?.h3_anchor_legacy === true) {
+    return {strength_mean: anchorMean(extra, index), strength_hf: 1.0, strength_fine: 0.7, strength_mid: 1.0, mean_keep_color: false, mean_phase_pooled: false};
+  }
+  const classwise = extra?.h3_anchor_phase_classwise === true;
+  return {strength_mean: classwise ? 1.0 : anchorPooledStrength(extra), strength_hf: 0.0, strength_fine: 0.0, strength_mid: 0.0,
+    mean_keep_color: true, mean_phase_pooled: !classwise};
+}
+
 export function tail12Enabled(extra) {
   return extra?.h3_tail12 === true || extra?.h3_tail12 === 'on';
 }
@@ -85,7 +110,7 @@ export function findTail12Sampler(graph, prepareId) {
       if (ref[0] === prepareId) return true;
       seen.add(ref[0]);
       const node = graph[ref[0]];
-      if (node?.class_type !== 'H3LongSongLock') return false;
+      if (!['H3LongSongLock','H3CrossGroupPrefixAudit'].includes(node?.class_type)) return false;
       ref = node.inputs?.latent;
     }
     return false;
@@ -125,7 +150,7 @@ export function applyTail12Consume(output, ctx) {
  * 产出侧：在本段存档之后重绘本段最后 12 个视频 token。
  *
  * 依赖方向：sampler → (drift anchor) → Save → extract → 尾12采样 → splice → commit →
- *          证据解码/成片。全程不回指 Prepare，故不会成环。
+ *          主成片解码（单次解码）或另出证据成片。全程不回指 Prepare，故不会成环。
  */
 export function applyTail12Produce(output, ctx) {
   const graph = output;
@@ -188,6 +213,20 @@ export function applyTail12Produce(output, ctx) {
     project_id: ctx.project, segment_index: index, current_segment_index: index,
     store_path: [save.id, 0],
     params_json: JSON.stringify({...TAIL12_PARAMS, ...(ctx.params ?? {}), protected_frames: protect})}};
+
+  // 单次解码：主成片的唯一解码对读的正是存档 latent 时，改读修复后的 latent。
+  // 主成片即修复版（合并本来就用修复版替换主成片），省掉整段第二次解码+编码；
+  // 回执侧由 six_resume.tail12_single_decode() 把主成片同时登记为尾12证据。
+  const sameSrc = node => linkOf(node.inputs?.samples) && node.inputs.samples[0] === src[0] && node.inputs.samples[1] === src[1];
+  if (ctx.saveVideo !== false && decode.length === 1 && audioDecode.length === 1
+      && sameSrc(decode[0]) && sameSrc(audioDecode[0])) {
+    for (const node of Object.values(next)) {
+      if ((node?.class_type === 'VAEDecode' || node?.class_type === 'VAEDecodeAudio') && sameSrc(node)) {
+        node.inputs.samples = ['h3_tail12_commit', 0];
+      }
+    }
+    return {graph: next, injected: true, reason: '', mode: 'produce_single_decode'};
+  }
 
   if (ctx.saveVideo !== false && createVideo) {
     const template = (createVideo.inputs ?? {});

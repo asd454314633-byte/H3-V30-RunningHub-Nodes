@@ -1,0 +1,101 @@
+{
+  "schema": "h3-model-index-1",
+  "note": "模型来源与文件名索引，包括可选/历史项；不代表所有18个均是当前运行必需。运行实例应按实际所需模型及哈希核验。文件名匹配不等于权重字节已验证。",
+  "binary_files_included": false,
+  "model_filenames": [
+    {
+      "filename": "MINIMAX\\minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "MINIMAX\\minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "MINIMAX\\minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
+      "source_url": "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "MiniMax-H3-Ref2VA-Acc-8Step.safetensors",
+      "source_url": "https://huggingface.co/alibaba-pai/MiniMax-H3-Acc-LoRAs/resolve/78db175437ee05df7ec492ee366f01b68b8d20e6/MiniMax-H3-Ref2VA-Acc-8Step.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "fasth3_omniref_8step_pruned_int8_convrot.safetensors",
+      "source_url": "https://huggingface.co/FastVideo/FastH3-Omni-Comfy/resolve/main/diffusion_models/fasth3_omniref_8step_pruned_int8_convrot.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "fasth3_vsa_gate.safetensors",
+      "source_url": "https://huggingface.co/barelymining/ComfyUI-MiniMax-H3-FastVideo/resolve/main/fasth3_vsa_gate.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors",
+      "source_url": "https://huggingface.co/FastVideo/FastVideo-FastH3-Comfy/resolve/main/diffusion_models/fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "minimax_h3_audio_vae_fp32.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors",
+      "source_url": "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/c41575a27fe1e7d7dcc4630e6cc410130dcbba53/minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "minimax_h3_fun_controlnet_union_2.0_pruned_int8_convrot.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/b697c7d61dc6289af15ce2690dcd4cd58366d2f0/model_patches/minimax_h3_fun_controlnet_union_2.0_pruned_int8_convrot.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "minimax_h3_turbo_v4_step600_ema_pruned_comfyui.safetensors",
+      "source_url": "https://huggingface.co/drbaph/MiniMax-H3-Turbo-Lora-ComfyUI/resolve/main/minimax_h3_turbo_v4_step600_ema_pruned_comfyui.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "minimax_h3_video_vae_fp16.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "minimax_h3_video_vae_int8_convrot.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "rt_detr_v4-x-hgnet_fp16.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/SDPose/resolve/main/diffusion_models/rt_detr_v4-x-hgnet_fp16.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "sdpose_wholebody_fp16.safetensors",
+      "source_url": "https://huggingface.co/Comfy-Org/SDPose/resolve/main/checkpoints/sdpose_wholebody_fp16.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED"
+    },
+    {
+      "filename": "taeh3.safetensors",
+      "source_url": "https://github.com/madebyollin/taehv/blob/62f7591f59dfbb4c3c02b7a621d180a9eeaba26c/safetensors/taeh3.safetensors",
+      "source_status": "PUBLIC_LOCATION_VERIFIED",
+      "sha256": "4fd022bfcab08772fe0536b17ea1a3bbb5625be11e397868d1c5d891863d4c13"
+    }
+  ],
+  "source_binaries_sha256": "not available from private source, match platform files before acceptance",
+  "verified_sources_are_not_model_binary_verification": true,
+  "source_filenames_checked_at": "2026-11-10"
+}

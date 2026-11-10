@@ -1,0 +1,78 @@
+{
+  "schema": "h3-review-deps-1",
+  "distribution": "index_only",
+  "third_party": [
+    {
+      "name": "ComfyUI-MAINodes",
+      "repository": "https://github.com/matlowai/ComfyUI-MAINodes",
+      "git_commit": "b99bb83f1b024c5b1c6e5368f7b38c9add6d74cf",
+      "license_record": "GPL-3.0-or-later",
+      "conditional_patch": "patches/ComfyUI-MAINodes_v1.0.5_timeline_port_range.patch"
+    },
+    {
+      "name": "ComfyUI-Ref2VA-VSA",
+      "repository": "https://github.com/Kablex/ComfyUI-Ref2VA-VSA",
+      "git_commit": "328d98808f66fe62528d1af02506eeee5f8200a0",
+      "license_record": "Apache-2.0",
+      "conditional_patch": null
+    },
+    {
+      "name": "comfyui-obvpm",
+      "repository": "https://github.com/chanon/comfyui-obvpm",
+      "git_commit": "7d5b977add00c2fb9690dca9a5f20023a47c8a80",
+      "license_record": "Apache-2.0 at pin",
+      "conditional_patch": null
+    },
+    {
+      "name": "ComfyUI-KJNodes",
+      "repository": "https://github.com/kijai/ComfyUI-KJNodes",
+      "git_commit": "d3cfe21625e5170126ce06fbfcfe1d88108688c3",
+      "license_record": "GPL-3.0",
+      "conditional_patch": null
+    },
+    {
+      "name": "rgthree-comfy",
+      "repository": "https://github.com/rgthree/rgthree-comfy",
+      "git_commit": "13b4399c00b5ef5a97b1b6800fc1185874740f5d",
+      "license_record": "MIT",
+      "conditional_patch": null
+    },
+    {
+      "name": "ComfyUI-MiniMax-H3-PDD-Acc",
+      "repository": "https://github.com/Jalen-Brunson/ComfyUI-MiniMax-H3-PDD-Acc",
+      "git_commit": "993566bd49a4776e3b15f617a0b207d75dccaed7",
+      "license_record": "Apache-2.0",
+      "conditional_patch": null
+    },
+    {
+      "name": "H3-Optimizations",
+      "repository": "https://github.com/Zironic/H3-Optimizations",
+      "git_commit": "862774944a331bc1a66cee1cf805b94bd138ebbe",
+      "license_record": "UNCONFIRMED",
+      "conditional_patch": null
+    }
+  ],
+  "python_import_modules": [
+    "aiohttp",
+    "av",
+    "comfy_aimdo",
+    "numpy",
+    "PIL",
+    "psutil",
+    "safetensors",
+    "torch",
+    "torchaudio"
+  ],
+  "python_package_versions": "inherit_exact_tested_runtime_or_resolve_per_cloud_comfyui_version; no arbitrary upgrade",
+  "system_tools": [
+    "ffmpeg",
+    "ffprobe"
+  ],
+  "installer_rule": "install third-party separately at pinned commits; do not bundle their source",
+  "exclusions": [
+    "workflow_json",
+    "model_weights",
+    "private_assets",
+    "credentials"
+  ]
+}

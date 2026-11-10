@@ -95,6 +95,19 @@ def tail12_video_nodes(output_graph):
     return main, tail
 
 
+def tail12_single_decode(output_graph):
+    """单次解码：主成片的视频解码直接读 H3Tail12Commit 的输出，主成片本身就是修复版，
+    回执把它同时登记为尾12证据（见 h3_quality_switches.applyTail12Produce）。"""
+    commits = {str(node_id) for node_id, node in (output_graph or {}).items()
+               if node.get("class_type") == "H3Tail12Commit"}
+    # 旧证据支路自己的 h3_tail12_decode 也读 commit，只认主成片的解码节点。
+    return any(node.get("class_type") == "VAEDecode"
+               and not str(node_id).startswith("h3_tail12_")
+               and isinstance(node.get("inputs", {}).get("samples"), list)
+               and str(node["inputs"]["samples"][0]) in commits
+               for node_id, node in (output_graph or {}).items())
+
+
 def output_files(result, key):
     """Unique real video files of one History output block."""
     if not isinstance(result, dict):
@@ -282,9 +295,12 @@ def reconcile_pending(server, root, project, index):
                                     expected_prompt_id=prompt_id, supersede=rerun_landed)
         latent_path = Path(inspected["path"])
         tail_evidence = None
-        if rerun_landed and _tail_videos:
-            tail_files = output_files(history.get("outputs", {}).get(_tail_videos[0][0], {}), "images") + \
-                         output_files(history.get("outputs", {}).get(_tail_videos[0][0], {}), "videos")
+        if rerun_landed and (_tail_videos or tail12_single_decode(output_graph)):
+            if _tail_videos:
+                tail_files = output_files(history.get("outputs", {}).get(_tail_videos[0][0], {}), "images") + \
+                             output_files(history.get("outputs", {}).get(_tail_videos[0][0], {}), "videos")
+            else:
+                tail_files = files  # 单次解码：主成片即修复版
             if len(tail_files) == 1 and tail_files[0].get("type") == "output":
                 tail_path = (Path(root) / tail_files[0].get("subfolder", "") / tail_files[0]["filename"]).resolve()
                 if tail_path.is_relative_to(Path(root).resolve()) and tail_path.is_file():
@@ -555,7 +571,10 @@ def register_routes():
                 # 尾12 已接线但被服务端丢弃（ComfyUI 会"忽略无效输出"并让其余分支照常成功），
                 # 这种"开了却没修"绝不能计为成功。
                 tail12_submitted = any(node.get("class_type") == "H3Tail12Commit" for node in output.values())
-                if tail12_submitted and not tail_video_nodes:
+                single_decode = tail12_single_decode(output)
+                if single_decode and tail_video_nodes:
+                    raise ValueError("尾12单次解码与证据视频同时存在，提交图不合约定；拒绝验收")
+                if tail12_submitted and not tail_video_nodes and not single_decode:
                     raise ValueError("本次提交包含尾12修复节点，但修复证据被丢弃（未产出修复版）；拒绝验收")
                 video_result = history.get("outputs", {}).get(video_nodes[0][0], {})
                 video_files = [entry for key in ("images", "videos") for entry in video_result.get(key, [])
@@ -569,14 +588,18 @@ def register_routes():
                 # repaired latent. Its video is what the merge must use for that segment,
                 # otherwise the merged tail would show the unfixed pixels.
                 tail_evidence = None
-                if tail_video_nodes:
-                    tail_files = output_files(history.get("outputs", {}).get(tail_video_nodes[0][0], {}), "images") + \
-                                 output_files(history.get("outputs", {}).get(tail_video_nodes[0][0], {}), "videos")
-                    if len(tail_files) != 1 or tail_files[0].get("type") != "output":
-                        raise ValueError("尾12证据视频输出不是唯一真实文件")
-                    tail_path = (Path(folder_paths.get_output_directory()) / tail_files[0].get("subfolder", "") / tail_files[0]["filename"]).resolve()
-                    if not tail_path.is_relative_to(Path(folder_paths.get_output_directory()).resolve()) or not tail_path.is_file():
-                        raise ValueError("尾12证据视频缺失或超出output目录")
+                if tail_video_nodes or single_decode:
+                    if single_decode:
+                        # 主成片的解码就读修复后 latent：证据即主成片本身。
+                        tail_files, tail_path = video_files, video_path
+                    else:
+                        tail_files = output_files(history.get("outputs", {}).get(tail_video_nodes[0][0], {}), "images") + \
+                                     output_files(history.get("outputs", {}).get(tail_video_nodes[0][0], {}), "videos")
+                        if len(tail_files) != 1 or tail_files[0].get("type") != "output":
+                            raise ValueError("尾12证据视频输出不是唯一真实文件")
+                        tail_path = (Path(folder_paths.get_output_directory()) / tail_files[0].get("subfolder", "") / tail_files[0]["filename"]).resolve()
+                        if not tail_path.is_relative_to(Path(folder_paths.get_output_directory()).resolve()) or not tail_path.is_file():
+                            raise ValueError("尾12证据视频缺失或超出output目录")
                     # 方案A：修复由本段自己的提交产出（挂在存档之后），因此证据视频与
                     # 修复版前缀都属于**本段**，合并时用它替换本段的尾部像素。
                     prefix_record = tail12_prefix(folder_paths.get_output_directory(), project, index)

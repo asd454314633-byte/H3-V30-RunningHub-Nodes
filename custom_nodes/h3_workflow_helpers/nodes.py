@@ -9,6 +9,8 @@ Used by 10Eros formal workflows so:
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import re
@@ -20,6 +22,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image, ImageOps, ImageSequence
 
+import comfy.nested_tensor
 import comfy.utils
 
 logger = logging.getLogger("h3_workflow_helpers")
@@ -1147,6 +1150,113 @@ class H3VideoPromptRole:
         return (out,)
 
 
+# 预载六段提示词：连续生成多段时，文本编码器（≈15 GB）与主模型（≈21 GB）进不了同一份显存/锁页内存，
+# 原本每段都要从磁盘重读一次编码器。开启后前端在首段提交前，把剩余各段的条件节点放进一个只编码的任务
+# 一次算完，由 H3PromptPreloadStore 暂存在本进程；各段的 H3PromptPreloadPick 用同一把键取用，命中时
+# 不执行上游条件节点（惰性输入），取不到就照常编码，结果不变。暂存只属于当前这条链：新链开始即清空，
+# 每段取用一次即删除，不落盘。
+_PRELOAD = {"chain": None, "items": {}}
+_PRELOAD_MEDIA_INPUTS = ("image", "audio", "video", "file")
+
+
+def _preload_key(prompt, link):
+    """条件来源及其全部上游的类型与输入（不含节点号）；媒体文件再带上大小与修改时间，
+    同名替换后不会取到旧条件。"""
+    memo = {}
+
+    def sig(node_id):
+        node_id = str(node_id)
+        if node_id not in memo:
+            node = prompt[node_id]
+            parts = [node["class_type"]]
+            for name in sorted(node["inputs"]):
+                value = node["inputs"][name]
+                if isinstance(value, list) and len(value) == 2 and str(value[0]) in prompt:
+                    parts.append([name, sig(value[0]), value[1]])
+                    continue
+                # 服务端校验会把部分 FLOAT 输入就地转成浮点、另一些保持整数（10 与 10.0），比较时统一为浮点。
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    value = float(value)
+                parts.append([name, value])
+                if name in _PRELOAD_MEDIA_INPUTS and isinstance(value, str) and folder_paths.exists_annotated_filepath(value):
+                    stat = os.stat(folder_paths.get_annotated_filepath(value))
+                    parts.append([name + ":stat", stat.st_size, stat.st_mtime_ns])
+            memo[node_id] = json.dumps(parts, ensure_ascii=False)
+        return memo[node_id]
+
+    return hashlib.sha256(f"{sig(link[0])}#{link[1]}".encode("utf-8")).hexdigest()
+
+
+def _preload_bytes(value):
+    if isinstance(value, torch.Tensor):
+        return value.nelement() * value.element_size()
+    if isinstance(value, comfy.nested_tensor.NestedTensor):
+        return sum(_preload_bytes(t) for t in value.tensors)
+    if isinstance(value, dict):
+        return sum(_preload_bytes(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_preload_bytes(v) for v in value)
+    return 0
+
+
+class H3PromptPreloadStore:
+    """预载任务的落点：暂存一段的条件与初始 latent，供本链后续 H3PromptPreloadPick 取用。"""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"conditioning": ("CONDITIONING",), "latent": ("LATENT",), "chain_id": ("STRING", {"default": ""})},
+                "hidden": {"prompt": "PROMPT", "unique_id": "UNIQUE_ID"}}
+
+    RETURN_TYPES = ()
+    FUNCTION = "store"
+    OUTPUT_NODE = True
+    CATEGORY = "H3/helpers"
+
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return float("nan")
+
+    def store(self, conditioning, latent, chain_id, prompt, unique_id):
+        if _PRELOAD["chain"] != chain_id:
+            _PRELOAD["items"].clear()
+            _PRELOAD["chain"] = chain_id
+        key = _preload_key(prompt, prompt[str(unique_id)]["inputs"]["conditioning"])
+        _PRELOAD["items"][key] = (conditioning, latent)
+        logging.info("[预载六段提示词] 暂存 %s，约 %.0f MB；本链共 %d 段",
+                     key[:12], (_preload_bytes(conditioning) + _preload_bytes(latent)) / 2**20, len(_PRELOAD["items"]))
+        return {}
+
+
+class H3PromptPreloadPick:
+    """取用预载结果：键相同即直接交出暂存的条件与 latent，上游条件节点不执行；否则照常编码。"""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"conditioning": ("CONDITIONING", {"lazy": True}), "latent": ("LATENT", {"lazy": True})},
+                "hidden": {"prompt": "PROMPT", "unique_id": "UNIQUE_ID"}}
+
+    RETURN_TYPES = ("CONDITIONING", "LATENT")
+    FUNCTION = "pick"
+    CATEGORY = "H3/helpers"
+
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return float("nan")
+
+    def check_lazy_status(self, conditioning=None, latent=None, prompt=None, unique_id=None):
+        key = _preload_key(prompt, prompt[str(unique_id)]["inputs"]["conditioning"])
+        return [] if key in _PRELOAD["items"] else ["conditioning", "latent"]
+
+    def pick(self, conditioning=None, latent=None, prompt=None, unique_id=None):
+        key = _preload_key(prompt, prompt[str(unique_id)]["inputs"]["conditioning"])
+        stored = _PRELOAD["items"].pop(key, None)
+        if stored is not None:
+            logging.info("[预载六段提示词] 命中 %s，本段跳过文本编码；本链剩余 %d 段", key[:12], len(_PRELOAD["items"]))
+            return stored
+        logging.info("[预载六段提示词] 未命中 %s，本段照常编码", key[:12])
+        return (conditioning, latent)
+
+
 NODE_CLASS_MAPPINGS = {
     "LoadImageWithSwitch": LoadImageWithSwitch,
     "H3OptionalLoadImage": H3OptionalLoadImage,
@@ -1166,6 +1276,8 @@ NODE_CLASS_MAPPINGS = {
     "H3GuideImageGuard": H3GuideImageGuard,
     "H3ContinuationSelector": H3ContinuationSelector,
     "H3VideoPromptRole": H3VideoPromptRole,
+    "H3PromptPreloadStore": H3PromptPreloadStore,
+    "H3PromptPreloadPick": H3PromptPreloadPick,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -1187,6 +1299,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "H3GuideImageGuard": "H3 关键帧图片运行保护（未设置即报错）",
     "H3ContinuationSelector": "H3 接续生产（关闭 / 开启，真切换）",
     "H3VideoPromptRole": "H3 视频用途（动作/镜头参考 或 直接编辑源视频）",
+    "H3PromptPreloadStore": "H3 预载六段提示词·暂存（内部）",
+    "H3PromptPreloadPick": "H3 预载六段提示词·取用（内部）",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -1,0 +1,26 @@
+{
+  "schema": "h3-environment-1",
+  "known_local_baseline": {
+    "comfyui": "0.42.1",
+    "python": "3.13.14",
+    "torch": "2.12.0+cu130",
+    "os": "Windows 11",
+    "gpu": "RTX 5090 D v2 24GB",
+    "baseline_only": true
+  },
+  "runninghub_editor_observed": {
+    "comfyui": "0.39.0",
+    "python": "3.10.12",
+    "device": "CPU",
+    "same_as_gpu_worker": "UNKNOWN"
+  },
+  "required_platform_components": [
+    "ComfyUI core with matching H3 node APIs",
+    "Python runtime for ComfyUI plugins",
+    "CUDA GPU worker for actual generation",
+    "FFmpeg and FFprobe for video processes"
+  ],
+  "cloud_compatibility": "NOT_TESTED",
+  "cross_platform_compatibility": "NOT_TESTED",
+  "private_runtime_environment_not_included": true
+}
