@@ -143,7 +143,7 @@
     "custom_nodes/H3_V28_Director/v28_ui_node.py": "60cb43b7e56bc68a9f4ab4eddc6feaeb816f7c96afa56bf4c9349271f4bbe3c3",
     "custom_nodes/H3_V28_Director/web/h3_director_v28.js": "bc830a916a0fbcc49d85a323667abf111622246d0a0800e2732d69d391664fcf",
     "custom_nodes/h3_workflow_helpers/__init__.py": "c75d5b74a2c49e5e521de1c2dd863c594184c036a2df6feb13f124bccb4bbbb6",
-    "custom_nodes/h3_workflow_helpers/nodes.py": "49a5f1428000258114498170c0ea85be11c45ab17bacd563549dc9b2ac29e69c",
+    "custom_nodes/h3_workflow_helpers/nodes.py": "ed3ddf603449c4c827baee37074033e4bc396b266e80d7a5db08b8015479014e",
     "custom_nodes/h3_workflow_helpers/web/h3_candidate_guide_route.js": "2af24b8eaddd53cbffd235b87da10c0016072cf66b95a164056dcdd7d3bc963c",
     "custom_nodes/h3_workflow_helpers/web/h3_candidate_model_route.js": "316ee13cec2e3ddc2a4ac2152f7658d0ae3d91ad648bb38404c2a6772b6d237b",
     "custom_nodes/h3_workflow_helpers/web/h3_console_state.js": "fc26b025af6bd24102545b94e6c75f6aaff619e1b8c8b542f14435e47e659d94",
@@ -159,5 +159,5 @@
     "custom_nodes/h3_workflow_helpers/web/h3_workflow_registry_v1.js": "80a23f9ae24435cbcf488e4c921ab9c2e79c3670c8a08cfacf6100d94efa7743",
     "custom_nodes/h3_workflow_helpers/web/h3_workflow_ux.js": "7cf67a7351bd671e4b4d0d193cdb60002b9118cf675eec22aea932cb59b8c1a8"
   },
-  "patch_revision": "deprecated-feature-card-prune-20261110"
+  "patch_revision": "dead-video-role-removed-20261110"
 }
