@@ -93,7 +93,7 @@
     "custom_nodes/H3_Prompt_Sidecar/web/h3_six_chain_contract.mjs": "51a3dc38ee843740e2b867bae9d758085eda073dc4057486c6a18409c9b3b3b4",
     "custom_nodes/H3_Prompt_Sidecar/web/h3_six_compiler_preview_ui.js": "7616b9bcb62082e93301a41a827e71f5906a7e8591bec93a80a7b257c07d6314",
     "custom_nodes/H3_Prompt_Sidecar/web/h3_six_compiler.js": "0a98c02fdd8181e902678107dbb31746b23002d00555d9ac345f2a4c61cd219c",
-    "custom_nodes/H3_Prompt_Sidecar/web/h3_six_execute.js": "de4c747e1382ec3c351a8a46bb2438192b1f4a88147cf925825e56c46163e368",
+    "custom_nodes/H3_Prompt_Sidecar/web/h3_six_execute.js": "51a551a6bd35cf1a1f31e0edc5ca53c2949ff7e9271ce0fd1723c035e296bad9",
     "custom_nodes/H3_Prompt_Sidecar/web/h3_six_guides.js": "e91ee59e2d85813fa8e77060fae0daae32bbbee158d8f79a05cda5981c590bd3",
     "custom_nodes/H3_Prompt_Sidecar/web/h3_six_prompt_sync.mjs": "f15cca9c0748260ca77502065e332eb2c8a8a0a3323c3d8d03ee4f209bf060e0",
     "custom_nodes/H3_Prompt_Sidecar/web/h3_six_receipt_contract.js": "bca4b18ffc78c49cac5cb5e3d8c25fb1d4385189e33d1a23050f54bc1e0bf202",
@@ -143,20 +143,21 @@
     "custom_nodes/H3_V28_Director/v28_ui_node.py": "60cb43b7e56bc68a9f4ab4eddc6feaeb816f7c96afa56bf4c9349271f4bbe3c3",
     "custom_nodes/H3_V28_Director/web/h3_director_v28.js": "bc830a916a0fbcc49d85a323667abf111622246d0a0800e2732d69d391664fcf",
     "custom_nodes/h3_workflow_helpers/__init__.py": "c75d5b74a2c49e5e521de1c2dd863c594184c036a2df6feb13f124bccb4bbbb6",
-    "custom_nodes/h3_workflow_helpers/nodes.py": "0d18c82efb11390975b4a391e7d2f854c6d94948494f939486285587f9634821",
+    "custom_nodes/h3_workflow_helpers/nodes.py": "49a5f1428000258114498170c0ea85be11c45ab17bacd563549dc9b2ac29e69c",
     "custom_nodes/h3_workflow_helpers/web/h3_candidate_guide_route.js": "2af24b8eaddd53cbffd235b87da10c0016072cf66b95a164056dcdd7d3bc963c",
     "custom_nodes/h3_workflow_helpers/web/h3_candidate_model_route.js": "316ee13cec2e3ddc2a4ac2152f7658d0ae3d91ad648bb38404c2a6772b6d237b",
     "custom_nodes/h3_workflow_helpers/web/h3_console_state.js": "fc26b025af6bd24102545b94e6c75f6aaff619e1b8c8b542f14435e47e659d94",
     "custom_nodes/h3_workflow_helpers/web/h3_fl2v_recipe_authority.js": "b39d49d4ed5a24a693e1cbd67bea18c5f76cdfc12875be2409c953cb69860868",
     "custom_nodes/h3_workflow_helpers/web/h3_foolproof_v2_ux.js": "359f6f3cb6b936f32e7a1c2e1506623b27ff3c23b2321460fd61e1e4994228f2",
-    "custom_nodes/h3_workflow_helpers/web/h3_foolproof_v3_dashboard.js": "50995f2602af4ee150167a41f5e39ea73b4093770c5c90e0392862870e6530dd",
+    "custom_nodes/h3_workflow_helpers/web/h3_foolproof_v3_dashboard.js": "5d4e941cc032787d777bb014a719f164f474041412cd15f69d453fb411c4c6d3",
     "custom_nodes/h3_workflow_helpers/web/h3_guide_authority.js": "776235ae08e415dcf2ee9bf8b95e54909133b9fadaf75d23859510b26663fb1b",
     "custom_nodes/h3_workflow_helpers/web/h3_material_cell.js": "854370d6a2e6b35432e797c4e7d8d37780104f75edd3df3d1415aeae13fc6158",
     "custom_nodes/h3_workflow_helpers/web/h3_omniref_lifecycle.js": "de00bbe3d509bc54c8a82c893e7d73ba8ee7078bff73620c418e10463427f18d",
     "custom_nodes/h3_workflow_helpers/web/h3_timeline_registry_data.js": "24ff4abeb7586f0b289ffeb95d4bc9856eb788898fd61a32e5aaf4d9d48112fe",
     "custom_nodes/h3_workflow_helpers/web/h3_timeline_ux.js": "8ad07295bf2f165a416dfb4caab90a32d196694fa43f357c494a4fb0bdbc80d1",
-    "custom_nodes/h3_workflow_helpers/web/h3_workflow_registry_core.js": "27ae2ae4738a0f2d575cd30635ef2baaece7639bef99f7a32bc25cfc67c48eac",
-    "custom_nodes/h3_workflow_helpers/web/h3_workflow_registry_v1.js": "731caf30e64838d1983ca86a273ec66d4f78f344d3d145f6bb8570bc836880af",
-    "custom_nodes/h3_workflow_helpers/web/h3_workflow_ux.js": "812f51f2bc276b93bbfa77ca12cc6208d7a50ae41be6b692b23ebea9570aafec"
-  }
+    "custom_nodes/h3_workflow_helpers/web/h3_workflow_registry_core.js": "d507c1c7c523880337eb8c3253613ba795af34a0c26e8e606b644e79a3adfc1f",
+    "custom_nodes/h3_workflow_helpers/web/h3_workflow_registry_v1.js": "80a23f9ae24435cbcf488e4c921ab9c2e79c3670c8a08cfacf6100d94efa7743",
+    "custom_nodes/h3_workflow_helpers/web/h3_workflow_ux.js": "7cf67a7351bd671e4b4d0d193cdb60002b9118cf675eec22aea932cb59b8c1a8"
+  },
+  "patch_revision": "deprecated-feature-card-prune-20261110"
 }

@@ -333,14 +333,7 @@ class H3OperationSelector:
     node is a control surface, not part of the generation dependency graph.
     """
 
-    MODES = [
-        "只跑一采",
-        "检测坏段",
-        "放大/扩时",
-        "执行二采",
-        "自动检测+扩时+二采（实验）",
-        "无任何选项状态",
-    ]
+    MODES = ["只跑一采", "无任何选项状态"]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -1275,7 +1268,7 @@ NODE_CLASS_MAPPINGS = {
     "H3GuideModeSelector": H3GuideModeSelector,
     "H3GuideImageGuard": H3GuideImageGuard,
     "H3ContinuationSelector": H3ContinuationSelector,
-    "H3VideoPromptRole": H3VideoPromptRole,
+
     "H3PromptPreloadStore": H3PromptPreloadStore,
     "H3PromptPreloadPick": H3PromptPreloadPick,
 }
@@ -1298,7 +1291,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "H3GuideModeSelector": "H3 时间轴关键帧（不使用 / 1~3 个关键帧，真切换）",
     "H3GuideImageGuard": "H3 关键帧图片运行保护（未设置即报错）",
     "H3ContinuationSelector": "H3 接续生产（关闭 / 开启，真切换）",
-    "H3VideoPromptRole": "H3 视频用途（动作/镜头参考 或 直接编辑源视频）",
+
     "H3PromptPreloadStore": "H3 预载六段提示词·暂存（内部）",
     "H3PromptPreloadPick": "H3 预载六段提示词·取用（内部）",
 }

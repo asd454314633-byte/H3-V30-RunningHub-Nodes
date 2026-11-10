@@ -1147,6 +1147,7 @@ function installDashboard(node) {
   const videoOff = makeChoice("关", "false", () => { setWidget(widget(referenceNode, "启用参考视频"), false); refresh(); });
   videoToggleGrid.append(videoOn, videoOff);
   videoSection.append(videoToggleGrid);
+  videoSection.style.display = 'none'; // 发布版禁用旧视频参考
   if (productionUi) {
     videoSection.querySelector(".h3v14-section-title").textContent = "参考视频开关（可选）";
     materialSection.append(videoSection);
@@ -1212,7 +1213,8 @@ function installDashboard(node) {
   const tabBar = el("div", "h3v14-tabbar");
   const tabOne = button("一采调节", () => { showTab(true); }, "choice");
   const tabTwo = button("二采调节", () => { showTab(false); }, "choice");
-  tabBar.append(tabOne, tabTwo);
+  tabBar.append(tabOne);
+  tabTwo.style.display = 'none'; // 旧二采标签页不再提供
   samplingSection.append(tabBar);
   // 一采面板
   const onePanel = el("div", "");
@@ -1240,7 +1242,8 @@ function installDashboard(node) {
   const pass2KV = el("div", "h3v14-kv"); pass2KV.append(el("span", "", "当前步数"), el("b", "", "—"));
   const pass2State = el("div", "h3v14-readonly", "状态：暂未开放");
   twoPanel.append(pass2KV, pass2State);
-  samplingSection.append(onePanel, twoPanel);
+  samplingSection.append(onePanel);
+  twoPanel.style.display = 'none';
   panel.append(samplingSection);
 
   // ===== ⑦生成过程预览（Phase D2：仅代理 N691 原生 mode，关闭=真正绕过）=====
@@ -1398,11 +1401,11 @@ function installDashboard(node) {
     if (refMode) {
       const imageCount = referenceImageIds.filter((id) => hasFile(byId(node, id), "image")).length;
       const imageReady = imageCount > 0;
-      const videoReady = Boolean(valueOf(referenceNode, "启用参考视频")) && hasFile(byId(node, NODE_IDS.video), "video");
+      const videoReady = false;
       const audioCount = AUDIOS.filter((id, index) => Boolean(valueOf(referenceNode, `启用参考音频${index + 1}`)) && hasFile(byId(node, id), "audio")).length;
       const audioReady = audioCount > 0;
       if (!imageReady && !videoReady && !audioReady) problems.push("多参考图生成至少需要一项有效的图片、视频或音频参考素材。");
-      if (Boolean(valueOf(referenceNode, "启用参考视频")) && !hasFile(byId(node, NODE_IDS.video), "video")) problems.push("视频参考已开启，但尚未上传参考视频。");
+      if (Boolean(valueOf(referenceNode, "启用参考视频"))) problems.push("发布版已退役参考视频功能，请关闭旧开关。");
       if (imageCount + (videoReady ? 1 : 0) + audioCount > 12) problems.push("参考文件总数超过 12（图片 + 视频 + 音频），请清除多余素材后再提交。");
     } else if (imageMode === H3_IMAGE_I2V && !hasFile(byId(node, 874), "image")) {
       problems.push("单图视频尚未上传主图，请先上传主图。");
@@ -1636,7 +1639,7 @@ function installDashboard(node) {
     // 素材入口始终可写，上传/清除永远可用。
     materialRows.refs.forEach((item) => item.row.classList.toggle("h3v14-hidden", !refMode));
     materialRows.audios.forEach((item) => item.row.classList.toggle("h3v14-hidden", !refMode));
-    materialRows.video.row.classList.toggle("h3v14-hidden", !refMode);
+    materialRows.video.row.style.display = "none";
     const firstFrameUsed = !refMode && imageMode !== H3_IMAGE_T2V;
     const lastFrameUsed = !refMode && imageMode === H3_IMAGE_FLF;
     materialRows.first.row.classList.toggle("h3v14-hidden", !firstFrameUsed);

@@ -22,66 +22,8 @@ const BYPASSED_BG = "#281a38";
  * 表示两者任一命中即点亮。required_inputs 统一检查；allow_queue=false 表示不提交。
  */
 const FUNCTION_REGISTRY = [
-  {
-    function_id: "primary_generate",
-    name_zh: "一采生成",
-    order: 1,
-    h3_operation: "pass1",
-    exclusiveTags: ["pass1"],
-    required_inputs: [],
-    allow_queue: true,
-    action: "执行一采生成",
-  },
-  {
-    function_id: "detect_only",
-    name_zh: "只检测坏段",
-    order: 2,
-    h3_operation: "detect",
-    exclusiveTags: ["detect"],
-    required_inputs: ["参考视频"],
-    allow_queue: true,
-    action: "执行坏段检测",
-  },
-  {
-    function_id: "expand_only",
-    name_zh: "只放大扩时",
-    order: 3,
-    h3_operation: "expand",
-    exclusiveTags: ["expand"],
-    required_inputs: ["参考视频"],
-    allow_queue: true,
-    action: "执行放大扩时",
-  },
-  {
-    function_id: "resample_only",
-    name_zh: "只执行二采",
-    order: 4,
-    h3_operation: "resample",
-    exclusiveTags: ["resample"],
-    required_inputs: ["二采潜空间"],
-    allow_queue: true,
-    action: "执行二采修复",
-  },
-  {
-    function_id: "auto_repair",
-    name_zh: "自动检测修复",
-    order: 5,
-    h3_operation: "auto",
-    exclusiveTags: ["auto"],
-    required_inputs: ["参考视频"],
-    allow_queue: true,
-    action: "执行自动修复",
-  },
-  {
-    function_id: "all_bypass",
-    name_zh: "全部旁路",
-    order: 6,
-    h3_operation: "none",
-    exclusiveTags: [],
-    required_inputs: [],
-    allow_queue: false,
-    action: "切换为全部旁路",
-  },
+  { function_id: "primary_generate", name_zh: "一采生成", order: 1, h3_operation: "pass1", exclusiveTags: ["pass1"], required_inputs: [], allow_queue: true, action: "执行一采生成" },
+  { function_id: "all_bypass", name_zh: "全部旁路", order: 2, h3_operation: "none", exclusiveTags: [], required_inputs: [], allow_queue: false, action: "全部旁路" },
 ];
 
 function registrySnapshot() {
@@ -94,14 +36,7 @@ function functionById(id) {
 
 function normalizeOperationValue(value) {
   const text = String(value ?? "");
-  const allowed = new Set([
-    "只跑一采",
-    "检测坏段",
-    "放大/扩时",
-    "执行二采",
-    "自动检测+扩时+二采（实验）",
-    "无任何选项状态",
-  ]);
+  const allowed = new Set(["只跑一采", "无任何选项状态"]);
   return allowed.has(text) ? text : null;
 }
 
@@ -118,10 +53,10 @@ function currentFunctionId(node) {
   const value = normalizeOperationValue(widget?.value);
   switch (value) {
     case "只跑一采": return "primary_generate";
-    case "检测坏段": return "detect_only";
-    case "放大/扩时": return "expand_only";
-    case "执行二采": return "resample_only";
-    case "自动检测+扩时+二采（实验）": return "auto_repair";
+
+
+
+
     case "无任何选项状态": return "all_bypass";
     default: return null;
   }
@@ -428,10 +363,10 @@ function selectFunction(node, functionId) {
   if (!definition) return invalidFunctionResult(functionId);
   const mapping = {
     primary_generate: "只跑一采",
-    detect_only: "检测坏段",
-    expand_only: "放大/扩时",
-    resample_only: "执行二采",
-    auto_repair: "自动检测+扩时+二采（实验）",
+
+
+
+
     all_bypass: "无任何选项状态",
   };
   const widget = registryWidget(node);

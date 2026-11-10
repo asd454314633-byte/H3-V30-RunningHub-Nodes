@@ -419,7 +419,7 @@ function applyDriftAnchor(output,project,index,update){
   const id='h3_drift_anchor';if(output[id])throw Error('漂移锚定节点重复，未提交本段');
   let rewired=0;
   for(const node of Object.values(output)){
-    if(!['VAEDecode','VAEDecodeAudio','H3JerkOracle','H3ContinuationSave'].includes(node?.class_type))continue;
+    if(!['VAEDecode','VAEDecodeAudio','H3ContinuationSave'].includes(node?.class_type))continue;
     for(const [key,value] of Object.entries(node.inputs||{}))if(Array.isArray(value)&&String(value[0])===String(src[0])&&value[1]===src[1]){node.inputs[key]=[id,0];rewired++}
   }
   output[id]={class_type:'H3LatentDriftAnchor',inputs:{latent:src,project_id:project,segment_index:index,prefix_tokens:12,ramp_tokens:1,...driftAnchorParams(app.graph?.extra,index),enabled:true,grid_h:6,grid_w:4,reanchor_segment:-1,mean_after_local:true}};
