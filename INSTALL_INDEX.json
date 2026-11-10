@@ -1,14 +1,7 @@
 {
-  "schema": "h3-review-deps-1",
+  "schema": "h3-runninghub-pruned-dependency-index-v2",
   "distribution": "index_only",
   "third_party": [
-    {
-      "name": "ComfyUI-MAINodes",
-      "repository": "https://github.com/matlowai/ComfyUI-MAINodes",
-      "git_commit": "b99bb83f1b024c5b1c6e5368f7b38c9add6d74cf",
-      "license_record": "GPL-3.0-or-later",
-      "conditional_patch": "patches/ComfyUI-MAINodes_v1.0.5_timeline_port_range.patch"
-    },
     {
       "name": "ComfyUI-Ref2VA-VSA",
       "repository": "https://github.com/Kablex/ComfyUI-Ref2VA-VSA",
@@ -63,7 +56,7 @@
     "torch",
     "torchaudio"
   ],
-  "python_package_versions": "inherit_exact_tested_runtime_or_resolve_per_cloud_comfyui_version; no arbitrary upgrade",
+  "python_package_versions": "Keep platform tested versions. Do not install or override already-present dependencies.",
   "system_tools": [
     "ffmpeg",
     "ffprobe"
@@ -73,6 +66,15 @@
     "workflow_json",
     "model_weights",
     "private_assets",
-    "credentials"
+    "credentials",
+    "legacy_second_pass_chain",
+    "duplicate_platform_nodes"
+  ],
+  "scope": "Review branch only. No third-party sources bundled. Cloud editor registered third party types; GPU worker still requires verification.",
+  "retired_dependency_omissions": [
+    {
+      "name": "ComfyUI-MAINodes",
+      "reason": "No surviving workflow graph node has cnr_id comfyui-mainodes after old second-pass, jerk detection, hold map and window loop pruning; prior patch removed"
+    }
   ]
 }
