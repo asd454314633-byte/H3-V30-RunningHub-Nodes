@@ -1,0 +1,107 @@
+{
+  "schema": "RUNNINGHUB_CLEAN_CORE_V1",
+  "locked_source_commit": "ab97f9a6ff5f089dc63972eb85a55ddcb052d862",
+  "source_dirs": 16,
+  "source_files": 154,
+  "core_classes": [
+    {
+      "class_type": "H3ContinuationAssemble",
+      "source": "custom_nodes/H3_NativeContinuation/nodes.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3ContinuationAudioBranch",
+      "source": "custom_nodes/H3_NativeContinuation/nodes.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3ContinuationGuides",
+      "source": "custom_nodes/H3_NativeContinuation/nodes.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3ContinuationPrepare",
+      "source": "custom_nodes/H3_NativeContinuation/nodes.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3ContinuationProvider",
+      "source": "custom_nodes/H3_NativeContinuation/nodes.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3ContinuationSave",
+      "source": "custom_nodes/H3_NativeContinuation/nodes.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3ContinuationTrimOnce",
+      "source": "custom_nodes/H3_NativeContinuation/nodes.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3LatentDriftAnchor",
+      "source": "custom_nodes/H3_DriftAnchor/__init__.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3PartialDiffusionEvictBeforeVAE",
+      "source": "custom_nodes/h3_partial_diffusion_evict/__init__.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3SelectiveTEUnload",
+      "source": "custom_nodes/h3_selective_te_unload/__init__.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3Tail12Commit",
+      "source": "custom_nodes/h3_tail12_quick/__init__.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3Tail12Extract",
+      "source": "custom_nodes/h3_tail12_quick/__init__.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3Tail12LoadAccepted",
+      "source": "custom_nodes/h3_tail12_quick/__init__.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3Tail12Splice",
+      "source": "custom_nodes/h3_tail12_quick/__init__.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3Tail12TrimMirror",
+      "source": "custom_nodes/h3_tail12_quick/__init__.py",
+      "definition_verified": true,
+      "registration_verified": true
+    },
+    {
+      "class_type": "H3SixDirectorState",
+      "source": "custom_nodes/H3_Prompt_Sidecar/__init__.py",
+      "definition_verified": true,
+      "registration_verified": true
+    }
+  ],
+  "cloud_editor_core_classes_missing": "16/16 at 2026-11-10 13:19 (from editor audit)",
+  "cloud_worker": "NOT_TESTED",
+  "status": "SOURCE_REVIEW_ONLY"
+}

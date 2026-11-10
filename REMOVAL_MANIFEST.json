@@ -1,0 +1,32 @@
+{
+  "source_commit": "ab97f9a6ff5f089dc63972eb85a55ddcb052d862",
+  "branch": "release/runninghub-v30-clean-review-20261110",
+  "removed": [
+    {
+      "path": "README_官方审核.txt",
+      "original_git_blob": "4634d7b7eb2cdb2586f61a7639f969bf7c830e35",
+      "reason": "Stale README, replaced by clean audit"
+    },
+    {
+      "path": "custom_nodes/H3_Qwen21_NoteShim/__init__.py",
+      "original_git_blob": "3045e628a6715a18e631b513e620332d5ab2eb4d",
+      "reason": "Generic Note/MarkdownNote shim for Qwen Image 2.1; duplicate with platform"
+    },
+    {
+      "path": "custom_nodes/h3_sampler_to_vae_residency_probe/__init__.py",
+      "original_git_blob": "a4ccb700bc3eeb827e0da2dd4762d487cf8102be",
+      "reason": "Local read-only memory diagnostic, not RunningHub production functionality"
+    },
+    {
+      "path": "custom_nodes/h3_te_residency_probe/__init__.py",
+      "original_git_blob": "4d1a29814360567f92cda7b8f73554f02eb3fedc",
+      "reason": "Local read-only memory diagnostic, not RunningHub production functionality"
+    },
+    {
+      "path": "patches/ComfyUI-MAINodes_v1.0.5_timeline_port_range.patch",
+      "original_git_blob": "1f818589450a3b9d8245c877e88c9e87540a2b61",
+      "reason": "Retired legacy MAINodes patch"
+    }
+  ],
+  "scope": "New review branch only; original main and audit branch unchanged"
+}

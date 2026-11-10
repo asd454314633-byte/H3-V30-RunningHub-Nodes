@@ -1,9 +1,8 @@
 {
-  "schema": "h3-private-source-hashes-1",
-  "source_commit": "80a0e5f7b401b47fa68c1ee90bb6b7aeaac7af61",
-  "overlay_gate_sha256": "b39d49d4ed5a24a693e1cbd67bea18c5f76cdfc12875be2409c953cb69860868",
-  "source_files_count": 157,
-  "source_packages": 19,
+  "schema": "H3_SOURCE_SHA256_CLEAN_REVIEW_20261110",
+  "origin": "ab97f9a6ff5f089dc63972eb85a55ddcb052d862",
+  "source_dirs": 16,
+  "source_files": 154,
   "files": {
     "custom_nodes/h3_adaptive_host_warm_inplace/__init__.py": "68a7e54c914d8ead98f985e30f35dc73c233cc1595b378da168f316a2a724e7a",
     "custom_nodes/h3_adaptive_host_warm_inplace/omniref_model_contract.py": "da37ddc0fe5940c4867a449be5bdc42d76422d03307644a953e31781f60a8784",
@@ -109,11 +108,8 @@
     "custom_nodes/H3_Prompt_Sidecar/web/six_console_v2_core.js": "4bf7a4264bdf60e359585666ae67ef014c07572be7c42d8ef4e76a76c66d9138",
     "custom_nodes/H3_Prompt_Sidecar/web/six_console_v2.js": "ee198a84308a6a402f22e406d1a7077430763e67684ec699a50946ebd06da93a",
     "custom_nodes/H3_Prompt_Sidecar/web/six_identity.js": "186a6ff2877be0d901d6d80018193d8ae5d2879de77beb9148799eed74ffb078",
-    "custom_nodes/H3_Qwen21_NoteShim/__init__.py": "d0c8ee2d00171f613af8476f465976e7cbf76c1cc3485f37eedda1e5d402d03a",
-    "custom_nodes/h3_sampler_to_vae_residency_probe/__init__.py": "c7a191db899dedfd79568908e5c9b8e1b03904d9d14790934b6d813e2a3d96fe",
     "custom_nodes/h3_selective_te_unload/__init__.py": "84a824f4636d31529eb38634816074d9616a730deb530c936f338ee47bcf428f",
     "custom_nodes/h3_tail12_quick/__init__.py": "c05e79d4e961c942d6adb4d4f5b11a8e23821923fbee76726c910adf534b0555",
-    "custom_nodes/h3_te_residency_probe/__init__.py": "a54b9e6dc73897178a47c7d5d07fd5da932bdedcce215ffa6e9545caae67e9fd",
     "custom_nodes/H3_V28_Director/__init__.py": "0930b5cc90c541ebb6f4603df541b79298aa7b48e578765a9ae54e4fa963403f",
     "custom_nodes/H3_V28_Director/skills/h3-v28-2-director/agents/openai.yaml": "a352a2ada2f675373a85af89c122b8263bc37ee1c74369d8d1ca81f962924ae6",
     "custom_nodes/H3_V28_Director/skills/h3-v28-2-director/references/physical-feasibility.md": "2c541e46fa477145cb99ac08fcdec174890e81f25b07b63e28f453d9326aabc5",
@@ -162,10 +158,5 @@
     "custom_nodes/h3_workflow_helpers/web/h3_workflow_registry_core.js": "27ae2ae4738a0f2d575cd30635ef2baaece7639bef99f7a32bc25cfc67c48eac",
     "custom_nodes/h3_workflow_helpers/web/h3_workflow_registry_v1.js": "731caf30e64838d1983ca86a273ec66d4f78f344d3d145f6bb8570bc836880af",
     "custom_nodes/h3_workflow_helpers/web/h3_workflow_ux.js": "812f51f2bc276b93bbfa77ca12cc6208d7a50ae41be6b692b23ebea9570aafec"
-  },
-  "conditional_patch": {
-    "path": "patches/ComfyUI-MAINodes_v1.0.5_timeline_port_range.patch",
-    "git_blob_sha1": "1f818589450a3b9d8245c877e88c9e87540a2b61"
-  },
-  "contains_workflow": false
+  }
 }
