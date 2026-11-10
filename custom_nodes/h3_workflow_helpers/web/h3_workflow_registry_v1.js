@@ -62,7 +62,7 @@ function installRegistryPanel(node, widget) {
   heading.textContent = "导演台｜选择要执行的功能";
   heading.style.cssText = "font-size:18px;color:#e6d8ff;margin-bottom:6px";
   const hint = document.createElement("div");
-  hint.textContent = "一采始终生成新视频。上传视频来源开关仅用于检测、扩时和二采；引用动作请开启“参考视频”。";
+  hint.textContent = "发布版保留正式生成与全部旁路；检测、扩时和二采已退出。";
   hint.style.cssText = "font-size:12px;font-weight:500;color:#c7b4df;margin-bottom:10px;line-height:1.45";
 
   const grid = document.createElement("div");

@@ -9,6 +9,8 @@ Used by 10Eros formal workflows so:
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import re
@@ -20,6 +22,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image, ImageOps, ImageSequence
 
+import comfy.nested_tensor
 import comfy.utils
 
 logger = logging.getLogger("h3_workflow_helpers")
@@ -330,14 +333,7 @@ class H3OperationSelector:
     node is a control surface, not part of the generation dependency graph.
     """
 
-    MODES = [
-        "只跑一采",
-        "检测坏段",
-        "放大/扩时",
-        "执行二采",
-        "自动检测+扩时+二采（实验）",
-        "无任何选项状态",
-    ]
+    MODES = ["只跑一采", "无任何选项状态"]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -719,432 +715,111 @@ class H3GuideImageGuard:
         return (images,)
 
 
-# =====================================================================
-# P3F/P3F1: H3VideoPromptRole —— 视频用途 + Reference Label 一致性节点（确定性）
-#
-# 职责一（P3F，保持）：读取 Ref2VA 六段 base_prompt，只改写与 <Video 1>
-#   有关的三处：
-#   1. summary 段任务类型标签 [reference generation] <-> [video editing]
-#   2. subject_definitions 段 <Video 1> subject 定义（插入或整行替换）
-#   3. retention_analysis 段 <Video 1> retention 行（插入或整行替换）
-#
-# 职责二（P3F1 新增）：Reference Label 一致性 —— 最终 Prompt 中出现的
-#   reference label 必须与 N150 实际开启的 reference 一致：
-#   - picture_refs_enabled=False：删除 subject_definitions 中 <Picture N>
-#     定义行、retention_analysis 中 <Picture N> retention 行；全文若仍
-#     残留 <Picture N> -> 中文 fail-closed。
-#   - audio1_enabled=False / audio2_enabled=False：同理删除对应 <Audio N>
-#     定义与 retention 行；无法安全删除 -> 中文 fail-closed，不猜着改。
-#   - 图片/音频 ON 时对应标签内容字节级保留。
-#   - 三个状态输入由共享 JS mirrorReferenceState() 从 N150 自动镜像，
-#     不是第二套用户开关（用户只操作 N150）。
-#
-# 模式：
-#   动作/镜头参考  -> task type=[reference generation]，retention=weak_reference
-#   直接编辑源视频 -> task type=[video editing]，retention=partially_preserved
-#
-# 纪律：
-#   - 纯文本规则转换；不调用 LLM / 网络 / 模型 / API。
-#   - 六段结构缺失 / summary 或 retention_analysis 缺失 / 出现无法确定的
-#     重复 <Video 1> 定义 / <Video 1> 出现在不可修改段 -> 中文 fail-closed。
-#   - 禁止重写剧情 / Shot / 台词 / detailed_description / soundscape / music。
-#   - 由 properties.h3_reference_branch="video" 接受共享 JS 旁路控制。
-# =====================================================================
-
-_REF2VA_SECTION_ORDER = (
-    "subject_definitions",
-    "summary",
-    "retention_analysis",
-    "detailed_description",
-    "overall_soundscape",
-    "non_diegetic_music",
-)
-
-_VIDEO_USAGE_MOTION_REF = "动作/镜头参考"
-_VIDEO_USAGE_SOURCE_EDIT = "直接编辑源视频"
-H3_VIDEO_USAGE_OPTIONS = (_VIDEO_USAGE_MOTION_REF, _VIDEO_USAGE_SOURCE_EDIT)
-
-_H3_VIDEO_SUMMARY_TAG = {
-    _VIDEO_USAGE_MOTION_REF: "[reference generation]",
-    _VIDEO_USAGE_SOURCE_EDIT: "[video editing]",
-}
-
-_H3_VIDEO_SUBJECT_DEF = {
-    _VIDEO_USAGE_MOTION_REF: (
-        "<Video 1>: motion-and-camera reference only. Borrow camera movement, "
-        "lens motion, cuts, rhythm, timing, temporal structure, and composition "
-        "relationships from <Video 1>; do not default to copying the identity, "
-        "appearance, costume, or background of anything in <Video 1>. Final "
-        "subject, look, and scene follow the user text and any other enabled "
-        "references (pictures / audio)."
-    ),
-    _VIDEO_USAGE_SOURCE_EDIT: (
-        "<Video 1>: source video to edit. This is the source video being edited; "
-        "the output is an edited version of <Video 1>, preserving its motion, "
-        "temporal structure, shots, and every part not requested to change, and "
-        "modifying only the parts the user explicitly asks to change."
-    ),
-}
-
-_H3_VIDEO_RETENTION_LINE = {
-    _VIDEO_USAGE_MOTION_REF: (
-        "<Video 1>: weak_reference - borrow motion, camera movement, cuts, rhythm, "
-        "timing, temporal structure, and composition only; identity, appearance, "
-        "costume, and background are not retained by default and follow the user "
-        "text and other enabled references."
-    ),
-    _VIDEO_USAGE_SOURCE_EDIT: (
-        "<Video 1>: partially_preserved - retain the source video's motion, "
-        "temporal structure, shots, and all content not requested to change; "
-        "modify only the parts the user explicitly asks to change."
-    ),
-}
+# 预载六段提示词：连续生成多段时，文本编码器（≈15 GB）与主模型（≈21 GB）进不了同一份显存/锁页内存，
+# 原本每段都要从磁盘重读一次编码器。开启后前端在首段提交前，把剩余各段的条件节点放进一个只编码的任务
+# 一次算完，由 H3PromptPreloadStore 暂存在本进程；各段的 H3PromptPreloadPick 用同一把键取用，命中时
+# 不执行上游条件节点（惰性输入），取不到就照常编码，结果不变。暂存只属于当前这条链：新链开始即清空，
+# 每段取用一次即删除，不落盘。
+_PRELOAD = {"chain": None, "items": {}}
+_PRELOAD_MEDIA_INPUTS = ("image", "audio", "video", "file")
 
 
-class H3VideoPromptRole:
-    """【视频用途】把 <Video 1> 定义为 动作/镜头参考 或 直接编辑源视频。
+def _preload_key(prompt, link):
+    """条件来源及其全部上游的类型与输入（不含节点号）；媒体文件再带上大小与修改时间，
+    同名替换后不会取到旧条件。"""
+    memo = {}
 
-    确定性节点：读取 Ref2VA 六段 base_prompt，仅改写 summary 任务类型标签、
-    subject_definitions 中 <Video 1> 定义、retention_analysis 中 <Video 1>
-    保留行；其余段落字节级原样保留。结构无法确定时中文 fail-closed。
-    不调用 LLM / 网络 / 模型 / API。
-    """
+    def sig(node_id):
+        node_id = str(node_id)
+        if node_id not in memo:
+            node = prompt[node_id]
+            parts = [node["class_type"]]
+            for name in sorted(node["inputs"]):
+                value = node["inputs"][name]
+                if isinstance(value, list) and len(value) == 2 and str(value[0]) in prompt:
+                    parts.append([name, sig(value[0]), value[1]])
+                    continue
+                # 服务端校验会把部分 FLOAT 输入就地转成浮点、另一些保持整数（10 与 10.0），比较时统一为浮点。
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    value = float(value)
+                parts.append([name, value])
+                if name in _PRELOAD_MEDIA_INPUTS and isinstance(value, str) and folder_paths.exists_annotated_filepath(value):
+                    stat = os.stat(folder_paths.get_annotated_filepath(value))
+                    parts.append([name + ":stat", stat.st_size, stat.st_mtime_ns])
+            memo[node_id] = json.dumps(parts, ensure_ascii=False)
+        return memo[node_id]
+
+    return hashlib.sha256(f"{sig(link[0])}#{link[1]}".encode("utf-8")).hexdigest()
+
+
+def _preload_bytes(value):
+    if isinstance(value, torch.Tensor):
+        return value.nelement() * value.element_size()
+    if isinstance(value, comfy.nested_tensor.NestedTensor):
+        return sum(_preload_bytes(t) for t in value.tensors)
+    if isinstance(value, dict):
+        return sum(_preload_bytes(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_preload_bytes(v) for v in value)
+    return 0
+
+
+class H3PromptPreloadStore:
+    """预载任务的落点：暂存一段的条件与初始 latent，供本链后续 H3PromptPreloadPick 取用。"""
 
     @classmethod
     def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "base_prompt": ("STRING", {"multiline": True, "default": ""}),
-                "video_usage": (list(H3_VIDEO_USAGE_OPTIONS), {"default": _VIDEO_USAGE_MOTION_REF}),
-            },
-            "optional": {
-                "picture_refs_enabled": ("BOOLEAN", {"default": True}),
-                "audio1_enabled": ("BOOLEAN", {"default": False}),
-                "audio2_enabled": ("BOOLEAN", {"default": False}),
-                # VIDEO_SWITCH_INDEPENDENT_MINIMAL_FIX_20260905：
-                # 唯一事实源 = N150(H3ReferenceSourceSelector)「启用参考视频」。
-                # video_refs_enabled 只允许作为该开关的内部镜像值（由共享 JS
-                # mirrorReferenceState() 在加载/同步时覆写），禁止作为
-                # 独立默认 True 的第二控制源（N150 视频默认 False → 此处
-                # 默认同步为 False = fail-closed）。
-                "video_refs_enabled": ("BOOLEAN", {"default": False}),
-            },
-        }
+        return {"required": {"conditioning": ("CONDITIONING",), "latent": ("LATENT",), "chain_id": ("STRING", {"default": ""})},
+                "hidden": {"prompt": "PROMPT", "unique_id": "UNIQUE_ID"}}
 
+    RETURN_TYPES = ()
+    FUNCTION = "store"
+    OUTPUT_NODE = True
     CATEGORY = "H3/helpers"
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("prompt",)
-    FUNCTION = "apply"
-    DESCRIPTION = (
-        "视频用途二选一（动作/镜头参考 = [reference generation] + weak_reference；"
-        "直接编辑源视频 = [video editing] + partially_preserved）。只改写 Ref2VA "
-        "六段中与 <Video 1> 相关的内容；并保证最终 Prompt 中出现的 reference "
-        "label 与 N150 实际开启的 reference 一致（图片/音频 OFF 时删除对应 "
-        "<Picture N>/<Audio N> 定义与 retention 行；残留即中文 fail-closed）。"
-        "不调 LLM/网络/模型/API；结构无法确定时中文报错（fail-closed）。"
-        "由 h3_reference_branch=video 随参考视频开关自动启停；picture/audio/video 状态"
-        "由共享 JS mirrorReferenceState() 从 N150 自动镜像，非第二套用户开关。"
-        "官方 Ref2VA Guide 兼容：<Video N> 可在 summary / detailed_description "
-        "引用已定义的视频参考；未启用视频却引用 <Video 1>、或 <Video N> 超出启用"
-        "数量（当前仅 1 路视频）时 fail-closed。"
-    )
 
-    @staticmethod
-    def _line_nl(text):
-        return "\r\n" if "\r\n" in text else "\n"
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return float("nan")
 
-    def _parse_sections(self, text):
-        """返回 {段名: (header_start, body_start)}；六段必须齐全且首现顺序规范。"""
-        hdr_re = re.compile(
-            r"(?m)^[ \t]*(%s):[ \t]*(?:\r?\n|$)"
-            % "|".join(re.escape(s) for s in _REF2VA_SECTION_ORDER)
-        )
-        matches = list(hdr_re.finditer(text))
-        if not matches:
-            raise RuntimeError(
-                "H3VideoPromptRole：base_prompt 不是 Ref2VA 六段结构（找不到任何段标题），拒绝改写。"
-            )
-        first_of = {}
-        for m in matches:
-            name = m.group(1)
-            if name in first_of:
-                raise RuntimeError("H3VideoPromptRole：段标题「%s」重复，拒绝歧义提示词。" % name)
-            if name not in first_of:
-                first_of[name] = m
-        missing = [s for s in _REF2VA_SECTION_ORDER if s not in first_of]
-        if missing:
-            raise RuntimeError(
-                "H3VideoPromptRole：base_prompt 缺少段「%s」，不是完整 Ref2VA 六段结构，拒绝改写。"
-                % "、".join(missing)
-            )
-        # 六段标题首现位置必须严格递增（否则段落内部出现疑似标题 -> 无法确定边界）
-        pos = [first_of[s].start() for s in _REF2VA_SECTION_ORDER]
-        if any(pos[i] >= pos[i + 1] for i in range(len(pos) - 1)):
-            raise RuntimeError(
-                "H3VideoPromptRole：六段标题顺序异常（段内有疑似重复标题），无法确定段落边界，拒绝改写。"
-            )
-        spans = {}
-        for s in _REF2VA_SECTION_ORDER:
-            m = first_of[s]
-            spans[s] = (m.start(), m.end())  # header line 起止
-        return spans
+    def store(self, conditioning, latent, chain_id, prompt, unique_id):
+        if _PRELOAD["chain"] != chain_id:
+            _PRELOAD["items"].clear()
+            _PRELOAD["chain"] = chain_id
+        key = _preload_key(prompt, prompt[str(unique_id)]["inputs"]["conditioning"])
+        _PRELOAD["items"][key] = (conditioning, latent)
+        logging.info("[预载六段提示词] 暂存 %s，约 %.0f MB；本链共 %d 段",
+                     key[:12], (_preload_bytes(conditioning) + _preload_bytes(latent)) / 2**20, len(_PRELOAD["items"]))
+        return {}
 
-    def _first_video1_def_line(self, body):
-        """body 内以行首 <Video 1> 开头的定义行（绝对区间列表）。"""
-        out = []
-        re_line = re.compile(r"(?m)^[ \t]*<Video 1>[^\r\n]*")
-        for m in re_line.finditer(body):
-            out.append((m.start(), m.end()))
-        return out
 
-    def _apply_summary_tag(self, text, usage):
-        spans = self._parse_sections(text)
-        s = spans["summary"][1]  # summary header 行结束（body 起点）
-        e = spans["detailed_description"][0] if "detailed_description" in spans else len(text)
-        body = text[s:e]
-        target = _H3_VIDEO_SUMMARY_TAG[usage]
-        m = re.match(r"[ \t\r\n]*(\[(?:reference generation|video editing)\])", body)
-        if not m:
-            raise RuntimeError(
-                "H3VideoPromptRole：summary 段缺少 [reference generation] 或 [video editing]"
-                " 任务类型标签，无法确定视频用途，拒绝改写。"
-            )
-        old_tag = m.group(1)
-        if old_tag == target:
-            return text
-        a = s + m.start(1)
-        b = s + m.end(1)
-        return text[:a] + target + text[b:]
+class H3PromptPreloadPick:
+    """取用预载结果：键相同即直接交出暂存的条件与 latent，上游条件节点不执行；否则照常编码。"""
 
-    def _apply_subject_video1(self, text, usage):
-        spans = self._parse_sections(text)
-        nl = self._line_nl(text)
-        s = spans["subject_definitions"][1]
-        e = spans["summary"][0] if "summary" in spans else len(text)
-        body = text[s:e]
-        def_line = _H3_VIDEO_SUBJECT_DEF[usage]
-        defs = self._first_video1_def_line(body)
-        if len(defs) > 1:
-            raise RuntimeError(
-                "H3VideoPromptRole：subject_definitions 段出现多处 <Video 1> 定义，"
-                "无法确定唯一语义，拒绝改写。"
-            )
-        if len(defs) == 1:
-            a, b = s + defs[0][0], s + defs[0][1]
-            return text[:a] + def_line + text[b:]
-        if "<Video 1>" in body:
-            raise RuntimeError(
-                "H3VideoPromptRole：subject_definitions 段出现行内 <Video 1> 提及但无"
-                "独立定义行，无法确定 <Video 1> 语义，拒绝改写。"
-            )
-        # 无定义 -> 在段首（标题行后）插入
-        insert_at = s
-        return text[:insert_at] + def_line + nl + text[insert_at:]
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"conditioning": ("CONDITIONING", {"lazy": True}), "latent": ("LATENT", {"lazy": True})},
+                "hidden": {"prompt": "PROMPT", "unique_id": "UNIQUE_ID"}}
 
-    def _apply_retention_video1(self, text, usage):
-        spans = self._parse_sections(text)
-        nl = self._line_nl(text)
-        s = spans["retention_analysis"][1]
-        e = spans["detailed_description"][0] if "detailed_description" in spans else len(text)
-        body = text[s:e]
-        ret_line = _H3_VIDEO_RETENTION_LINE[usage]
-        defs = self._first_video1_def_line(body)
-        if len(defs) > 1:
-            raise RuntimeError(
-                "H3VideoPromptRole：retention_analysis 段出现多处 <Video 1> 保留行，"
-                "无法确定唯一语义，拒绝改写。"
-            )
-        if len(defs) == 1:
-            a, b = s + defs[0][0], s + defs[0][1]
-            return text[:a] + ret_line + text[b:]
-        if "<Video 1>" in body:
-            raise RuntimeError(
-                "H3VideoPromptRole：retention_analysis 段出现行内 <Video 1> 提及但无"
-                "独立保留行，无法确定 <Video 1> 语义，拒绝改写。"
-            )
-        insert_at = s
-        return text[:insert_at] + ret_line + nl + text[insert_at:]
+    RETURN_TYPES = ("CONDITIONING", "LATENT")
+    FUNCTION = "pick"
+    CATEGORY = "H3/helpers"
 
-    def _strip_disabled_reference_lines(self, text, picture_on, audio1_on, audio2_on):
-        """Reference Label 一致性：删除 subject_definitions / retention_analysis
-        段中与「已关闭 reference」绑定的行。
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        return float("nan")
 
-        - picture OFF：删除含 <Picture N> 的整行（定义行 / retention 行），并删除
-          retention_analysis 内紧随图片 retention 的无标签图片收尾句
-          （"The four pictures are independent; ..." 句式，视为图片 retention
-          组成部分）。图片 ON 时 Picture 1-4 字节级保留。
-        - audio1/audio2 OFF：删除含 <Audio 1> / <Audio 2> 的整行。
-        - 一行同时含禁用标签与启用标签（<Video N> / 开启中的其它参考）时，
-          无法安全整行删除 -> 中文 fail-closed，不猜着改用户内容。
-        - 删除后全文任何段若仍残留已关闭标签 -> 中文 fail-closed。
-        只操作 subject_definitions / retention_analysis；detailed_description /
-        summary / soundscape / music 等其它段绝不重写。
-        """
-        if picture_on and audio1_on and audio2_on:
-            return text
+    def check_lazy_status(self, conditioning=None, latent=None, prompt=None, unique_id=None):
+        key = _preload_key(prompt, prompt[str(unique_id)]["inputs"]["conditioning"])
+        return [] if key in _PRELOAD["items"] else ["conditioning", "latent"]
 
-        tag_re = re.compile(r"<\s*(?:Picture|Audio|Video)\s*\d+\s*>", re.IGNORECASE)
-
-        def tag_family(tag):
-            m = re.match(r"<\s*(Picture|Audio|Video)\s*(\d+)\s*>", tag, re.IGNORECASE)
-            if not m:
-                return None
-            return m.group(1).lower(), int(m.group(2))
-
-        def tag_disabled(fam):
-            kind, num = fam
-            if kind == "picture":
-                return not picture_on
-            if kind == "audio":
-                return (num == 1 and not audio1_on) or (num == 2 and not audio2_on)
-            return False  # Video 恒启用（N915 仅视频 ON 时激活）
-
-        def tag_enabled(fam):
-            kind, num = fam
-            if kind == "picture":
-                return picture_on
-            if kind == "audio":
-                return (num == 1 and audio1_on) or (num == 2 and audio2_on)
-            return True  # Video
-
-        # 逐行重建文本；只处理 subject_definitions / retention_analysis 两段的 body。
-        lines = text.splitlines(keepends=True)
-        out_lines = []
-        current = None
-        for raw in lines:
-            stripped = raw.strip()
-            is_header = False
-            if stripped:
-                for name in _REF2VA_SECTION_ORDER:
-                    if re.match(r"^%s:[ \t]*$" % re.escape(name), stripped):
-                        current = name
-                        is_header = True
-                        break
-            in_editable = current in ("subject_definitions", "retention_analysis")
-            if is_header or not in_editable:
-                out_lines.append(raw)
-                continue
-            content = raw[:-1] if raw.endswith("\n") else raw
-            if content.endswith("\r"):
-                content = content[:-1]
-            tags = tag_re.findall(content)
-            if not tags:
-                out_lines.append(raw)
-                continue
-            fams = [tag_family(t) for t in tags]
-            has_disabled = any(tag_disabled(f) for f in fams)
-            if not has_disabled:
-                out_lines.append(raw)
-                continue
-            if any(tag_enabled(f) for f in fams):
-                raise RuntimeError(
-                    "H3VideoPromptRole：同一行同时引用已启用与已关闭的 reference"
-                    "（%s），无法安全整行删除，拒绝改写。请手动整理该行。"
-                    % " ".join(sorted(set(tags)))
-                )
-            # 整行删除
-            continue
-        text = "".join(out_lines)
-
-        # retention_analysis 图片收尾句（图片 OFF，template 句式视为图片块组成部分）
-        if not picture_on:
-            spans = self._parse_sections(text)
-            h = spans["retention_analysis"]
-            idx = _REF2VA_SECTION_ORDER.index("retention_analysis")
-            nxt = spans[_REF2VA_SECTION_ORDER[idx + 1]][0] if idx + 1 < len(_REF2VA_SECTION_ORDER) else len(text)
-            seg = text[h[1]:nxt]
-            kept = []
-            for raw in seg.splitlines(keepends=True):
-                if raw.strip() and raw.strip().lower().startswith("the four pictures are independent"):
-                    continue
-                kept.append(raw)
-            text = text[:h[1]] + "".join(kept) + text[nxt:]
-
-        # 折叠删行引起的连续空行（不触碰任何非空内容）
-        text = re.sub(r"\n{3,}", "\n\n", text)
-
-        # 全文残留检查：已关闭标签不得出现在任何段
-        for m in tag_re.finditer(text):
-            fam = tag_family(m.group(0))
-            if fam and tag_disabled(fam):
-                kind = fam[0]
-                if kind == "picture":
-                    raise RuntimeError(
-                        "H3VideoPromptRole：当前提示词仍引用未启用的图片参考，请检查提示词。"
-                        "（残留 %s）" % m.group(0)
-                    )
-                raise RuntimeError(
-                    "H3VideoPromptRole：当前提示词仍引用未启用的音频参考（%s），请检查提示词。"
-                    % m.group(0)
-                )
-        return text
-
-    def apply(self, base_prompt, video_usage=_VIDEO_USAGE_MOTION_REF,
-              picture_refs_enabled=True, audio1_enabled=False, audio2_enabled=False,
-              video_refs_enabled=False):
-        if not isinstance(base_prompt, str) or not base_prompt.strip():
-            raise RuntimeError(
-                "H3VideoPromptRole：base_prompt 为空，无法改写。请先填写 Ref2VA 六段提示词。"
-            )
-        if video_usage not in H3_VIDEO_USAGE_OPTIONS:
-            raise RuntimeError("H3VideoPromptRole：未知视频用途，拒绝自动切换为其他用途。")
-        usage = video_usage
-        text = base_prompt
-        spans = self._parse_sections(text)
-
-        # ① <Video N> 索引范围校验：N 不得超过实际启用的视频参考数量
-        #   （启用=1，未启用=0）。未启用视频却出现 <Video 1> → STOP；
-        #   <Video 2> 及更高超出启用数量 → STOP。此规则与官方 Ref2VA Guide 一致：
-        #   reference labels 在六段中保持统一含义，summary / detailed_description
-        #   可引用已定义的 <Video N>，故此处只校验索引范围，不再按段封禁 <Video N>。
-        _video_tag_re = re.compile(r"<\s*Video\s*(\d+)\s*>", re.IGNORECASE)
-        max_video_idx = 1 if video_refs_enabled else 0
-        for m in _video_tag_re.finditer(text):
-            idx = int(m.group(1))
-            if idx < 1 or idx > max_video_idx:
-                if not video_refs_enabled:
-                    raise RuntimeError(
-                        "H3VideoPromptRole：未启用视频参考，但提示词仍引用 %s，拒绝改写。"
-                        % m.group(0)
-                    )
-                raise RuntimeError(
-                    "H3VideoPromptRole：提示词引用 %s，超出实际启用的视频参考数量（1），"
-                    "拒绝改写。" % m.group(0)
-                )
-
-        # ② 音频段（overall_soundscape / non_diegetic_music）仍不接受 <Video N>
-        #   引用（视频参考标签只授权出现在 subject_definitions / retention_analysis /
-        #   summary / detailed_description 四段）。
-        frozen = [
-            "overall_soundscape", "non_diegetic_music",
-        ]
-        for name in frozen:
-            h = spans[name]
-            nxt = len(text)
-            # 用六段顺序找下一段 header 起点
-            idx = _REF2VA_SECTION_ORDER.index(name)
-            if idx + 1 < len(_REF2VA_SECTION_ORDER):
-                nxt = spans[_REF2VA_SECTION_ORDER[idx + 1]][0]
-            seg = text[h[1]:nxt]
-            if _video_tag_re.search(seg):
-                raise RuntimeError(
-                    "H3VideoPromptRole：<Video> 出现在不允许引用的「%s」段内，无法确定语义，拒绝改写。"
-                    % name
-                )
-        if not video_refs_enabled:
-            return (self._strip_disabled_reference_lines(
-                text, bool(picture_refs_enabled), bool(audio1_enabled), bool(audio2_enabled)
-            ),)
-        out = self._apply_summary_tag(text, usage)
-        out = self._apply_subject_video1(out, usage)
-        out = self._apply_retention_video1(out, usage)
-        out = self._strip_disabled_reference_lines(
-            out,
-            picture_on=bool(picture_refs_enabled),
-            audio1_on=bool(audio1_enabled),
-            audio2_on=bool(audio2_enabled),
-        )
-        return (out,)
+    def pick(self, conditioning=None, latent=None, prompt=None, unique_id=None):
+        key = _preload_key(prompt, prompt[str(unique_id)]["inputs"]["conditioning"])
+        stored = _PRELOAD["items"].pop(key, None)
+        if stored is not None:
+            logging.info("[预载六段提示词] 命中 %s，本段跳过文本编码；本链剩余 %d 段", key[:12], len(_PRELOAD["items"]))
+            return stored
+        logging.info("[预载六段提示词] 未命中 %s，本段照常编码", key[:12])
+        return (conditioning, latent)
 
 
 NODE_CLASS_MAPPINGS = {
@@ -1165,7 +840,9 @@ NODE_CLASS_MAPPINGS = {
     "H3GuideModeSelector": H3GuideModeSelector,
     "H3GuideImageGuard": H3GuideImageGuard,
     "H3ContinuationSelector": H3ContinuationSelector,
-    "H3VideoPromptRole": H3VideoPromptRole,
+
+    "H3PromptPreloadStore": H3PromptPreloadStore,
+    "H3PromptPreloadPick": H3PromptPreloadPick,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -1186,7 +863,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "H3GuideModeSelector": "H3 时间轴关键帧（不使用 / 1~3 个关键帧，真切换）",
     "H3GuideImageGuard": "H3 关键帧图片运行保护（未设置即报错）",
     "H3ContinuationSelector": "H3 接续生产（关闭 / 开启，真切换）",
-    "H3VideoPromptRole": "H3 视频用途（动作/镜头参考 或 直接编辑源视频）",
+
+    "H3PromptPreloadStore": "H3 预载六段提示词·暂存（内部）",
+    "H3PromptPreloadPick": "H3 预载六段提示词·取用（内部）",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

@@ -1,4 +1,6 @@
-import {sixOptions,inheritSegment,disableSixRebase,wireSixContinuation,assertSixSubmission,disableCrossGroup,correctSixSubmission} from './h3_six_chain_contract.mjs?v=20261101fresh2';
+import {NATIVE_CROSS_SCHEMA,nativeCrossProof,snapshotNativeCross,wireNativeCross} from './h3_native_cross_group.mjs?v=20261108crossOff2';
+import {planPromptPreload} from './h3_prompt_preload_plan.mjs?v=20261107remaining1';
+import {sixOptions,inheritSegment,disableSixRebase,wireSixContinuation,assertSixSubmission,correctSixSubmission} from './h3_six_chain_contract.mjs?v=20261108cross1';
 import {app} from '../../../scripts/app.js';
 import {api} from '../../../scripts/api.js';
 import {flightProgressText,normalizeFlightEvent} from './h3_flight_progress.js?v=20261024progress2';
@@ -11,9 +13,9 @@ import {compileForSubmission,submissionDuration} from './h3_six_compiler.js?v=20
 import {applyShotTimes} from './six_console_v2_core.js?v=20261029fulltext1';
 import {applySegmentSettingsSafe,bindTaskWorkflow} from './h3_task_workflow.js?v=20261101unblock1';
 
-import {prepareIdentity,identityConfig} from './h3_identity_refs.js?v=20261028t009a';
+import {prepareIdentity,identityConfig,effectiveIdentity} from './h3_identity_refs.js?v=20261028t009a';
 import {readJsonResponse} from './h3_json_response.js?v=p0fix1';
-import {applyTail12Consume,applyTail12Produce,tail12ConsumeBlockReason,tail12ProduceBlockReason,findTail12Sampler,tail12Enabled,anchorMean} from './h3_quality_switches.js?v=20261101longsong1';
+import {applyTail12Consume,applyTail12Produce,tail12ConsumeBlockReason,tail12ProduceBlockReason,findTail12Sampler,tail12Enabled,driftAnchorParams} from './h3_quality_switches.js?v=20261108strength1';
 const flights=new Map();
 let activeExecutions=0,submissionTail=Promise.resolve();
 const continuityFlights=new Map();
@@ -63,6 +65,91 @@ function waitForCompletion(id,timeout,update,graph){
 
 export function sixExecutionState(){return {executing:activeExecutions>0,pendingPromptIds:[...flights.keys()]}}
 
+// 接缝连续引导（开关在六段框）：下一段文本要求的画面与上一段结尾差得远时，模型会在前缀交界处直接切镜头
+// （潜码第 11→12 token 突变）。续接段文本最前加一句连续性引导，让开头沿用上一镜头、再逐渐变化。
+export const SEAM_LEAD='Seamless continuation of the previous shot with no cut: the first moments keep exactly the same camera position, framing, subject, lighting and colors as the end of the previous shot, then the action evolves gradually.';
+export function seamLead(text){return text.startsWith(SEAM_LEAD)?text:SEAM_LEAD+' '+text}
+
+// 预载六段提示词（开关在六段框）：文本编码器（≈15 GB）与主模型（≈21 GB）进不了同一份显存/锁页内存，
+// 原本连续生成时每段都要从磁盘重读一次编码器。首段提交前，把条件节点及其上游按本段起各段文本复制进一个
+// 只编码的任务一次跑完，结果由插件暂存（H3PromptPreloadStore）；各段把条件节点的输出改接到
+// H3PromptPreloadPick，键相同即取用、条件节点不执行。条件节点为图中唯一的 MiniMaxH3ReferenceToVideo
+// （A0 为 136；V30 为 1106，文本经 1042 音频预检）。随段变化的只有文本节点 138，依赖它的节点每段各复制
+// 一份，其余上游共用。长歌开启时各段参考音频要按上一段真实成片切取（长歌节点禁止猜测音频位置），无法预载。
+// 键由后端按图结构计算、不含节点号；不一致（文本被编译改写、分段设置不同、参考图被替换等）就照常编码，结果不变。
+export function preloadGraph(output,texts,chainId){
+  const source=preloadSource(output);
+  if(!source||source.longSong)return null;
+  const memo=new Map();
+  const varies=id=>{
+    if(!memo.has(id)){
+      memo.set(id,false);
+      const node=output[id];
+      memo.set(id,id==='138'||Object.values(node.inputs||{}).some(v=>isPreloadLink(v)&&source.up.has(v[0])&&varies(v[0])));
+    }
+    return memo.get(id);
+  };
+  const cloneId=(id,j)=>id==='138'?`h3_preload_text_${j}`:id===source.id?`h3_preload_cond_${j}`:`h3_preload_${j}_${id}`;
+  const graph={};
+  for(const id of source.up)if(!varies(id))graph[id]=structuredClone(output[id]);
+  texts.forEach((text,j)=>{
+    for(const id of source.up){
+      if(!varies(id))continue;
+      const node=structuredClone(output[id]);
+      for(const [name,v] of Object.entries(node.inputs||{}))
+        if(isPreloadLink(v)&&source.up.has(v[0])&&varies(v[0]))node.inputs[name]=[cloneId(v[0],j),v[1]];
+      if(id==='138')node.inputs.value=text;
+      graph[cloneId(id,j)]=node;
+    }
+    graph[`h3_preload_store_${j}`]={class_type:'H3PromptPreloadStore',inputs:{conditioning:[`h3_preload_cond_${j}`,0],latent:[`h3_preload_cond_${j}`,1],chain_id:chainId}};
+  });
+  return graph;
+}
+
+// 条件节点的所有下游（含尾12克隆的条件链）统一改读取用节点；必须在全部图变换之后调用。
+export function insertPreloadPick(output){
+  const source=preloadSource(output);
+  if(!source||source.longSong||output.h3_preload_pick)return false;
+  for(const node of Object.values(output))for(const [name,value] of Object.entries(node.inputs||{})){
+    if(isPreloadLink(value)&&value[0]===source.id)node.inputs[name]=['h3_preload_pick',value[1]];
+  }
+  output.h3_preload_pick={class_type:'H3PromptPreloadPick',inputs:{conditioning:[source.id,0],latent:[source.id,1]}};
+  return true;
+}
+
+function isPreloadLink(v){return Array.isArray(v)&&v.length===2&&typeof v[0]==='string'}
+
+// 唯一的 MiniMaxH3ReferenceToVideo 且其上游含文本节点 138，才可预载。
+function preloadSource(output){
+  const conds=Object.keys(output||{}).filter(id=>output[id]?.class_type==='MiniMaxH3ReferenceToVideo');
+  if(conds.length!==1||output['138']?.class_type!=='PrimitiveStringMultiline')return null;
+  const up=new Set();
+  const walk=id=>{if(up.has(id)||!output[id])return;up.add(id);
+    for(const v of Object.values(output[id].inputs||{}))if(isPreloadLink(v))walk(v[0])};
+  walk(conds[0]);
+  return up.has('138')?{id:conds[0],up,longSong:[...up].some(id=>output[id].class_type==='H3LongSongSegment')}:null;
+}
+
+const chainPreloadState={id:null,keys:new Set()};
+async function preloadChainPrompts(submission,texts,chainId,queue,update){
+  if(preloadSource(submission.output)?.longSong){update('预载六段提示词：长歌开启时每段音频要等上一段成片后才能确定，按原流程逐段编码');return}
+  const graph=preloadGraph(submission.output,texts,chainId);
+  if(!graph){update('预载六段提示词：条件节点结构不符，按原流程逐段编码');return}
+  if(chainPreloadState.id!==chainId){chainPreloadState.id=chainId;chainPreloadState.keys.clear()}
+  const plan=planPromptPreload(graph,chainPreloadState.keys);
+  if(!plan.missing){chainPreloadState.keys.delete(plan.keys[0]);return}
+  update(`预载六段提示词：补载剩余段中 ${plan.missing} 段`);
+  let monitor=null;
+  try{
+    const result=await queue.call(api,0,{output:plan.graph,workflow:submission.workflow});
+    if(!result?.prompt_id)throw Error('未收到预载 prompt_id');
+    monitor=waitForCompletion(result.prompt_id);await monitor.promise;
+    plan.keys.forEach(key=>chainPreloadState.keys.add(key));
+    update('预载六段提示词完成');
+  }catch(error){update(`预载六段提示词未完成（${error.message}），按原流程逐段编码`)}
+  finally{monitor?.cleanup();chainPreloadState.keys.delete(plan.keys[0])}
+}
+
 async function storeRequest(path,data) {
   let response;try{response=await api.fetchApi(path,data===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})}catch(error){throw Error(`连续存档请求连接失败：${path}｜${(error&&error.message)||error}`)}
   const prefix=path.startsWith('/h3/cross-group/')?'跨组校验失败：':path==='/h3/long-song/validate-start'?'音频起点校验失败：':'';
@@ -78,7 +165,7 @@ export function executeVisiblePrompt(text,index,update,options={}) {
   options={...options,manual_shot_times:structuredClone(host?.properties.h3_manual_shot_times?.[index]||null)};
   options={...options,identity_refs:identityConfig()};
   assertGuideSafe(options.user_guide);
-  if(disableCrossGroup(host,update))app.graph.setDirtyCanvas(true,true);
+  options={...options,cross_group:host?.properties.h3_cross_group?.enabled===true?structuredClone(host.properties.h3_cross_group):null};
   options={...options,submission_id:crypto.randomUUID(),production_selection:host?structuredClone({story_id:host.properties.h3_prebake_story_id,binding:host.properties.h3_prebake_binding,generated_group_id:host.__sixUI?.group?.id||null,texts:[...host.__sixRoot.querySelectorAll('.six-prompt')].map(a=>a.value),revisions:host.properties.h3_prebake_revisions||[0,0,0,0,0,0],previous:host.properties.h3_prebake_texts||['','','','','','']}):null};
   const key=(options.project_id||'H3_SIX_V288')+':'+index;
   const dependencies=options.continuous===true&&index>0&&options.independent!==true?[continuityFlights.get((options.project_id||'H3_SIX_V288')+':'+(index-1))].filter(Boolean):[];
@@ -94,13 +181,30 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
     disableSixRebase(snapshot.output);
     if(dependencies.length){update('已接受续接请求，等待前段真实存档');const parents=await Promise.all(dependencies);options={...options,predecessor_binding:parents.at(-1)?.binding}}
     const previous=submissionTail;submissionTail=new Promise(resolve=>release=resolve);await previous;
-    const project=options.project_id||'H3_SIX_V288';
+    let project=options.project_id||'H3_SIX_V288';
     const continuous=options.continuous===true;
     if(options.isCancelled?.())throw Error('用户已取消，未提交本段');
     if(continuous&&!productionEnabled())await assertNativeProjectUnbound(project,readReceiptJSON);
     const cross=options.cross_group?.enabled===true;
-    const inherit=inheritSegment(index);
-    if(cross&&(!options.long_song?.enabled||app.graph.extra?.h3_prebake_production?.enabled!==true))throw Error('跨组续接需要现有完整歌曲适配和PreBake受控提交链');
+    const inherit=inheritSegment(index,options.cross_group);
+    if(cross&&!options.long_song?.enabled){
+      if(productionEnabled())throw Error('普通跨组续接请使用当前 Native 六段路线；PreBake 长歌路线需开启完整歌曲');
+      if(options.cross_group.contract?.schema!==NATIVE_CROSS_SCHEMA)throw Error('请先核验并绑定上一组');
+      if(index===0){
+        const host=app.graph._nodes.find(n=>n.type==='H3SixDirectorState'&&n.properties.h3_six_director);
+        const saved=host?.__sixUI?.receiptSnapshot?.()||{};
+        let proof=options.cross_group.contract;
+        if(project!==proof.source_project&&[0,1,2,3,4,5].every(i=>saved[i]?.status==='ACCEPTED'&&saved[i]?.project_id===project)){
+          proof=await nativeCrossProof(project,storeRequest);
+          host.properties.h3_cross_group={...host.properties.h3_cross_group,source_project:project,contract:proof};
+          const source=host.__sixRoot.querySelector('.cross-source');if(source)source.value=project;
+        }
+        const frozen=await snapshotNativeCross(proof,storeRequest);
+        if(project===proof.source_project){project=project.slice(0,39)+'_NEXT_'+options.submission_id.replaceAll('-','').slice(0,16);host?.__sixUI?.setRuntimeProject(project);}
+        options={...options,project_id:project,cross_group:{...options.cross_group,source_project:proof.source_project,contract:frozen}};
+        update('接上一组：S1 读取已完成 S6 的只读快照，写入独立项目 '+project);
+      }
+    }else if(cross&&app.graph.extra?.h3_prebake_production?.enabled!==true)throw Error('长歌跨组续接需要现有 PreBake 时间轴提交链');
     if(options.long_song?.enabled){
       const firstText=index===0?text:options.production_selection?.texts?.[0];
       options={...options,long_song:resolveSongStart(options.long_song,firstText)};
@@ -156,6 +260,7 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
     let identity;
     try{identity=await prepareIdentity(snapshot.output,index,options.identity_refs)}catch(error){const host=app.graph._nodes.find(n=>n.properties?.h3_six_director);host?.__sixRoot?.dispatchEvent(new CustomEvent('sixidentityerror',{detail:error.message}));throw error}
     text+=identity.suffix;
+    if(continuous&&inherit&&options.seam_lead===true)text=seamLead(text);
     if(options.production_selection){const texts=[...options.production_selection.texts];texts[index]=text;options={...options,production_selection:{...options.production_selection,texts}}}
     const prebake=await prepareProduction(snapshot,text,index,options,update,waitForCompletion);
     const generationProject=prebake?.context?.project_id||project;
@@ -172,10 +277,11 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
       if(source?.type!=='PrimitiveStringMultiline'||!input)throw Error('缺少FL2VA实际Prompt源；未提交GPU');
       snapshot.workflow=bindTaskWorkflow(snapshot.workflow,{nodeId:source.id,widgetIndex:source.widgets.indexOf(input),widgetName:input.name,text});
     }
-    const original=api.queuePrompt;let submitted=null,completion=null;
+    const original=api.queuePrompt;let submitted=null,completion=null,captureError=null;
     // Preserve the native UI graph snapshot; managed attempts submit once via the backend.
     // The backend reserves the exact prompt_id and owns recovery/stop loss.
     const capture=async function(...args){
+      try{
       if(options.isCancelled?.())throw Error('用户已取消，前置检查后未提交本段');
       args[1]={...args[1],...structuredClone(snapshot)};
       const output=args[1]?.output;
@@ -190,6 +296,7 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
       }
       wireSixContinuation(output,generationProject,index,inherit);
       args[1].output=await cachedGraph(finishLongSong(output,options,generationProject),prebake);
+      wireNativeCross(args[1].output,generationProject,index,options.cross_group);
       if(!prebake)args[1].output=await compileUnmanagedGuide(args[1].output,index,options,generationProject);
       const saveVideos=Object.values(args[1].output||{}).filter(n=>n.class_type==='SaveVideo');
       if(saveVideos.length!==1)throw Error('缺少或重复SaveVideo，未提交本段');
@@ -197,7 +304,7 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
       saveVideos[0].inputs.filename_prefix=`${generationProject}/S${index+1}`;
       if(app.graph?.extra?.h3_drift_anchor===true)applyDriftAnchor(args[1].output,generationProject,index,update);
       args[1].output=await applyTail12Submission(args[1].output,generationProject,index,inherit,update);
-      correctSixSubmission(args[1].output,generationProject,index);
+      correctSixSubmission(args[1].output,generationProject,index,options.cross_group);
       if(index>0){
         const prep=Object.values(args[1].output).find(n=>n.class_type==='H3ContinuationPrepare')?.inputs;
         const ref=prep?.prev_latent,source=Array.isArray(ref)?args[1].output[String(ref[0])]:null;
@@ -210,7 +317,19 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
           }
         }
       }
-      assertSixSubmission(args[1].output,generationProject,index);
+      assertSixSubmission(args[1].output,generationProject,index,options.cross_group);
+      if(continuous&&options.chain_preload){
+        // 首段用已定稿文本；后续段按届时提交的同一顺序加工：卡片原文 + 人物容貌句 → 接缝引导
+        // （与其届时写入 N138 的文本一致才会命中）。容貌设置与本段不同的段无法预知，不预载、届时照常编码。
+        const texts=options.chain_preload.texts;
+        if(texts?.length){
+          const identityRefs=options.identity_refs??identityConfig(),mine=JSON.stringify(effectiveIdentity(identityRefs,index));
+          const later=texts.slice(1).flatMap((t,k)=>JSON.stringify(effectiveIdentity(identityRefs,index+1+k))===mine?[t+identity.suffix]:[]);
+          await preloadChainPrompts(args[1],[text,...later.map(t=>options.seam_lead===true?seamLead(t):t)],options.chain_preload.id,original,update);
+        }
+        insertPreloadPick(args[1].output);
+        if(options.isCancelled?.())throw Error('用户已取消，预载后未提交本段');
+      }
       if(continuous)await storeRequest('/h3/six/acceptance',{project_id:generationProject,segment_index:index,status:'PENDING',group_id:prebake?.context?.group_id,requires_predecessor:inherit&&index>0,submission_id:options.submission_id});
       if(options.isCancelled?.())throw Error('用户已取消，未提交本段');
       const result=prebake?await submitProduction(prebake,args[1].output,args[1].workflow,api.clientId):await original.apply(this,args);
@@ -221,11 +340,12 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
         completion.catch(()=>{});update('已加入队列',{prompt_id:submitted});
       }
       return result;
+      }catch(error){captureError=error;throw error}
     };
     api.queuePrompt=capture;
-    try{const result=await app.queuePrompt(0,1);if(result===false&&!submitted)throw Error('Queue未成功，请查看ComfyUI错误')}
+    try{const result=await app.queuePrompt(0,1);if(result===false&&!submitted)throw captureError||Error('Queue未成功，请查看ComfyUI错误')}
     finally{if(api.queuePrompt===capture)api.queuePrompt=original}
-    if(!submitted)throw Error('未收到本次Queue的prompt_id；没有继续提交后续段落');
+    if(!submitted)throw captureError||Error('未收到本次Queue的prompt_id；没有继续提交后续段落');
     release();release=null;
     await completion;
     // Playback is evidence of a generated video, independently of continuation
@@ -233,7 +353,7 @@ async function runVisiblePrompt(text,index,update,options,dependencies) {
     update('视频已生成，正在核验续接回执',{prompt_id:submitted,video_ready:true});
     if(prebake){const status=await productionStatus(prebake,submitted);if(status.status!=='SUCCESS')throw Error('本次任务未通过后台验收：'+status.status);await acceptProduction(prebake,submitted);}
     else if(continuous)await storeRequest('/h3/six/acceptance',{project_id:generationProject,segment_index:index,status:'SUCCESS',prompt_id:submitted,group_id:prebake?.context?.group_id,submission_id:options.submission_id});
-    return {prompt_id:submitted,execution_version:prebake?.context.execution_version,story_id:prebake?.context.story_id,binding:prebake?.context};
+    return {prompt_id:submitted,execution_version:prebake?.context.execution_version,story_id:prebake?.context.story_id,binding:prebake?.context||(cross?{project_id:generationProject}:undefined)};
   }finally{release?.();monitor?.cleanup();activeExecutions--}
 }
 
@@ -280,7 +400,9 @@ export async function applyTail12Submission(output,project,index,inherit,update)
   const produced=applyTail12Produce(graph,{project,index,save,sampler,saveEnabled,saveVideo:true});
   if(produced.injected){
     graph=produced.graph;
-    update(`第${index+1}段：本段尾部39帧将重绘并另存（供第${index+2}段复用）`);
+    update(produced.mode==='produce_single_decode'
+      ?`第${index+1}段：本段尾部39帧将重绘，成片直接用修复版（单次解码，供第${index+2}段复用）`
+      :`第${index+1}段：本段尾部39帧将重绘并另存（供第${index+2}段复用）`);
   }else if(!TAIL12_PRODUCE_SKIP.has(produced.reason)){
     throw Error(`尾12产出接线失败：${produced.reason}；未提交本段`);
   }
@@ -297,9 +419,9 @@ function applyDriftAnchor(output,project,index,update){
   const id='h3_drift_anchor';if(output[id])throw Error('漂移锚定节点重复，未提交本段');
   let rewired=0;
   for(const node of Object.values(output)){
-    if(!['VAEDecode','VAEDecodeAudio','H3JerkOracle','H3ContinuationSave'].includes(node?.class_type))continue;
+    if(!['VAEDecode','VAEDecodeAudio','H3ContinuationSave'].includes(node?.class_type))continue;
     for(const [key,value] of Object.entries(node.inputs||{}))if(Array.isArray(value)&&String(value[0])===String(src[0])&&value[1]===src[1]){node.inputs[key]=[id,0];rewired++}
   }
-  output[id]={class_type:'H3LatentDriftAnchor',inputs:{latent:src,project_id:project,segment_index:index,prefix_tokens:12,ramp_tokens:1,strength_mean:anchorMean(app.graph?.extra,index),strength_hf:1.0,enabled:true,strength_fine:0.7,strength_mid:1.0,grid_h:6,grid_w:4,reanchor_segment:-1}};
-  update(`第${index+1}段：漂移锚定（实验）已接入，改接 ${rewired} 处${index===0?'；本段记为标准':''}`);
+  output[id]={class_type:'H3LatentDriftAnchor',inputs:{latent:src,project_id:project,segment_index:index,prefix_tokens:12,ramp_tokens:1,...driftAnchorParams(app.graph?.extra,index),enabled:true,grid_h:6,grid_w:4,reanchor_segment:-1,mean_after_local:true}};
+  update(`第${index+1}段：漂移锚定已接入${app.graph?.extra?.h3_anchor_legacy===true?'（旧做法）':''}${index===0?'，本段记为标准':''}`);
 }

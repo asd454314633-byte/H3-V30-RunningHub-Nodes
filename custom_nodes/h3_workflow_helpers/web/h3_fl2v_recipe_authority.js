@@ -54,6 +54,7 @@
   "use strict";
 
   var FL2VA_MODEL = "minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors";
+  var V2_MODEL = "fastvideo_fasth3_8step_v2_pruned_int8_convrot.safetensors";
   var REF2VA_REPAIR_MODEL = "minimax_h3_ref2va_pruned_int8_convrot.safetensors";
   var FROZEN_SCHEDULER = "simple";
   var F4_STEPS = 4;
@@ -65,6 +66,8 @@
 
   var ID = {
     FL2VA_UNET: "646",
+    V2_UNET: "977",
+    IMAGE_SELECTOR: "761",
     REF2VA_UNET: "620",
     SCHEDULER: "880",
     F4_LORA: "877",
@@ -194,8 +197,8 @@
     var v = readSelectorValue(prompt, CLS.ROUTE_SELECTOR, ID.ROUTE_SELECTOR);
     if (v === undefined) return "UNKNOWN";
     var s = String(v);
-    if (s.indexOf("F4") >= 0) return "F4";
-    if (s.indexOf("F1") >= 0) return "F1";
+    if (s === "主用 F4（FastH3 VSA 4步）") return "F4";
+    if (s === "快速平衡（FastH3 V2 8步）") return "V2";
     return "UNKNOWN";
   }
 
@@ -230,6 +233,7 @@
         problems.push("REF2VA: N620 holds an FL2VA model (" + u620 + ")");
       }
       if (has(prompt, ID.FL2VA_UNET)) problems.push("REF2VA: N646 must be absent");
+      if (has(prompt, ID.V2_UNET)) problems.push("REF2VA: N977 must be absent");
       var f = [ID.F4_LORA, ID.F4_SIGMA, ID.F1_SAGE, ID.F1_LORA];
       for (var i = 0; i < f.length; i++) {
         if (has(prompt, f[i])) problems.push("REF2VA: FL2V route node N" + f[i] + " must be absent");
@@ -240,12 +244,38 @@
       };
     }
 
-    /* FL2VA */
-    var unet = lit(prompt, ID.FL2VA_UNET, "unet_name");
-    if (!has(prompt, ID.FL2VA_UNET)) {
-      problems.push("FL2VA: N646 (FL2VA checkpoint authority) missing");
-    } else if (unet !== FL2VA_MODEL) {
-      problems.push("FL2VA: N646.unet_name=" + unet + " != " + FL2VA_MODEL);
+    /* FL2VA routes are distinct and must never fall back. */
+    var unet;
+    if (route !== "F4" && route !== "V2") {
+      problems.push("FL2VA: unknown or retired route; refusing fallback");
+    } else if (route === "F4") {
+      unet = lit(prompt, ID.FL2VA_UNET, "unet_name");
+      if (!has(prompt, ID.FL2VA_UNET) || nodeOf(prompt, ID.FL2VA_UNET).class_type !== "UNETLoader") problems.push("F4: N646 UNETLoader missing");
+      else if (unet !== FL2VA_MODEL) problems.push("F4: N646 model mismatch");
+      if (has(prompt, ID.V2_UNET)) problems.push("F4: N977 must be absent");
+    } else {
+      unet = lit(prompt, ID.V2_UNET, "unet_name");
+      if (!has(prompt, ID.V2_UNET) || nodeOf(prompt, ID.V2_UNET).class_type !== "UNETLoader") problems.push("V2: N977 UNETLoader missing");
+      else if (unet !== V2_MODEL) problems.push("V2: N977 model mismatch");
+      if (has(prompt, ID.FL2VA_UNET)) problems.push("V2: N646 must be absent");
+      var imageMode = readSelectorValue(prompt, "H3ImageModeSelector", ID.IMAGE_SELECTOR);
+      if (imageMode !== "文生视频（不用图）") problems.push("V2: text-to-video mode required");
+      var condition = nodeOf(prompt, "644");
+      if (!condition || condition.class_type !== "MiniMaxH3ImageToVideo") problems.push("V2: N644 text-to-video conditioning missing");
+      else if (condition.inputs && (condition.inputs.first_frame != null || condition.inputs.last_frame != null)) problems.push("V2: image frame input is not supported");
+      var v2 = [["978", "MiniMaxH3SigmaShift", {shift_video:10, shift_audio:3}],
+                ["979", "ModelAttentionBackend", {attention:"comfy kitchen attention"}],
+                ["980", "BlockSparseAttention", {selection:"vsa", "selection.keep_percent":10, start_percent:0.2, end_percent:1, dense_blocks:"", min_tokens:12288, extra_tokens:256, sink_conditioning:"exact_kv_and_rows", verbose:false}],
+                ["981", "BasicScheduler", {scheduler:"simple", steps:8, denoise:1}],
+                ["982", "KSamplerSelect", {sampler_name:"res_multistep"}]];
+      for (var vi = 0; vi < v2.length; vi++) {
+        var spec = v2[vi], vn = nodeOf(prompt, spec[0]);
+        if (!vn || vn.class_type !== spec[1]) { problems.push("V2: N" + spec[0] + " missing or wrong type"); continue; }
+        for (var field in spec[2]) if (lit(prompt, spec[0], field) !== spec[2][field]) problems.push("V2: N" + spec[0] + "." + field + " mismatch");
+      }
+      [["978","model","977"],["979","model","978"],["980","model","979"],["981","model","980"]].forEach(function (edge) {
+        if (linkTarget(prompt, edge[0], edge[1]) !== edge[2]) problems.push("V2: N" + edge[0] + "." + edge[1] + " route mismatch");
+      });
     }
     if (has(prompt, ID.REF2VA_UNET)) problems.push("FL2VA: N620 must be absent");
 
@@ -353,8 +383,8 @@
     var v = readWidget(graph, ID.ROUTE_SELECTOR, null);
     if (v === undefined || v === null) return "UNKNOWN";
     var s = String(v);
-    if (s.indexOf("F4") >= 0) return "F4";
-    if (s.indexOf("F1") >= 0) return "F1";
+    if (s === "主用 F4（FastH3 VSA 4步）") return "F4";
+    if (s === "快速平衡（FastH3 V2 8步）") return "V2";
     return "UNKNOWN";
   }
 
@@ -366,7 +396,7 @@
 
     // 1) checkpoint authority: N646 is FL2VA-only, N620 is REF2VA-only.
     //    They must never overwrite each other.
-    if (branch === "FL2VA" || branch === "UNKNOWN") {
+    if (branch === "FL2VA" && route === "F4") {
       if (setWidget(graph, ID.FL2VA_UNET, FL2VA_MODEL, "unet_name")) changed.push("646.unet_name");
     }
     var u620 = readWidget(graph, ID.REF2VA_UNET, "unet_name");
@@ -391,6 +421,12 @@
     if (setMode(graph, ID.F1_LORA, fl2v && route === "F1")) changed.push("879.mode");
 
     return { changed: changed, branch: branch, route: route };
+  }
+
+  function assertGraphRouteKnown(graph) {
+    if (graphBranch(graph) === "FL2VA" && graphRoute(graph) === "UNKNOWN") {
+      throw new Error("FL2VA: unknown or retired route; refusing fallback");
+    }
   }
 
   /* ---------------- ComfyUI frontend wiring ---------------- */
@@ -418,6 +454,7 @@
     if (typeof original !== "function" || original[GATE_FLAG]) return original && original[GATE_FLAG] ? true : false;
     var wrapped = async function () {
       var graph = this && this.graph ? this.graph : app.graph;
+      assertGraphRouteKnown(graph);
       // 1) sync recipe BEFORE graphToPrompt (value authority)
       try {
         applyFl2vRecipeAuthority(graph);
@@ -445,6 +482,7 @@
     // If validation throws, the submission never happens.
     var wrappedQueue = async function () {
       try {
+        assertGraphRouteKnown(app.graph);
         applyFl2vRecipeAuthority(app.graph);
         var pending = await app.graphToPrompt();
         gateResult(pending);

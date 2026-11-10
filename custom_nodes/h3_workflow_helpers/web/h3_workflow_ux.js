@@ -225,66 +225,15 @@ const ZH = {
   h3_dashboard_v3: "控制台面板",
 };
 
-const PLAYER_TITLES = ["【模式 1 输出】", "【模式 3 输出】", "【模式 4 输出】"];
+const PLAYER_TITLES = ["【模式 1 输出】"];
 const OPERATION_KEYS = {
   "只跑一采": "pass1",
-  "检测坏段": "detect",
-  "放大/扩时": "expand",
-  "执行二采": "resample",
-  "自动检测+扩时+二采（实验）": "auto",
   "无任何选项状态": "none",
 };
 
 const OPERATION_CARDS = [
-  {
-    value: "只跑一采",
-    key: "pass1",
-    number: "1",
-    title: "一采生成",
-    description: "生成主视频并保存；检测、放大、二采和自动修复全部紫色旁路。",
-    action: "执行一采生成",
-  },
-  {
-    value: "检测坏段",
-    key: "detect",
-    number: "2",
-    title: "只检测坏段",
-    description: "只输出检测区间、曲线和结论，不放大、不二采。",
-    action: "执行坏段检测",
-  },
-  {
-    value: "放大/扩时",
-    key: "expand",
-    number: "3",
-    title: "只放大扩时",
-    description: "生成扩时预览和方案报告，到此停止，绝不启动二采。",
-    action: "执行放大扩时",
-  },
-  {
-    value: "执行二采",
-    key: "resample",
-    number: "4",
-    title: "只执行二采",
-    description: "读取放大扩时链并执行二采修复；与功能 3 独立。",
-    action: "执行二采修复",
-  },
-  {
-    value: "自动检测+扩时+二采（实验）",
-    key: "auto",
-    number: "5",
-    title: "自动检测修复",
-    description: "自动检测；无坏段直接输出，有坏段才点亮窗口二采。",
-    action: "执行自动修复",
-  },
-  {
-    value: "无任何选项状态",
-    key: "none",
-    number: "6",
-    title: "全部旁路",
-    description: "所有功能区变紫，仅查看参数，不提交任何任务。",
-    action: "切换为全部旁路",
-    queue: false,
-  },
+  { value: "只跑一采", key: "pass1", number: "1", title: "一采生成", description: "正式一次采样视频生成。", action: "执行一采生成" },
+  { value: "无任何选项状态", key: "none", number: "2", title: "全部旁路", description: "禁止向生成队列提交任务。", action: "全部旁路", queue: false },
 ];
 
 const ACTIVE_NODE_COLOR = "#277a52";
@@ -315,10 +264,10 @@ function cardForValue(value) {
 function normalizeOperationValue(value) {
   const text = String(value ?? "");
   if (OPERATION_KEYS[text]) return text;
-  if (text.startsWith("检")) return "检测坏段";
-  if (text.startsWith("放")) return "放大/扩时";
-  if (text.startsWith("执")) return "执行二采";
-  if (text.startsWith("自")) return "自动检测+扩时+二采（实验）";
+  if (text.startsWith("检")) return "无任何选项状态";
+  if (text.startsWith("放")) return "无任何选项状态";
+  if (text.startsWith("执")) return "无任何选项状态";
+  if (text.startsWith("自")) return "无任何选项状态";
   if (text.startsWith("无")) return "无任何选项状态";
   return "只跑一采";
 }
@@ -352,7 +301,7 @@ function normalizeSpeedValue(value) {
 function operationForGroup(group) {
   const match = /【功能\s*([1-5])/.exec(group?.title || "");
   if (!match) return null;
-  return OPERATION_CARDS[Number(match[1]) - 1]?.key || null;
+  return Number(match[1]) === 1 ? "pass1" : null;
 }
 
 function paintOperationNode(candidate, enabled) {

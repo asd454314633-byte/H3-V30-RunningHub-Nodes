@@ -1,0 +1,43 @@
+name: RunningHub H3 V30 static source audit
+on:
+  push:
+    branches:
+      - release/runninghub-v30-clean-review-20261110
+    paths:
+      - .github/workflows/runninghub-source-static-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check self-developed source SHA256
+        run: python3 verify_package.py
+      - name: Check Python syntax
+        run: python3 -m compileall -q custom_nodes
+      - name: Check JavaScript and ESM syntax
+        run: |
+          find custom_nodes -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -n1 node --check
+      - name: Validate 16 core class definitions and mappings
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("NODE_MANIFEST.json").read_text("utf-8"))
+          assert len(data["core_classes"])==16
+          for c in data["core_classes"]:
+              name=c["class_type"]
+              path=Path(c["source"])
+              assert path.is_file(),(name,"missing source")
+              source=path.read_text("utf-8-sig")
+              assert "class "+name in source,(name,"missing class")
+              assert ('"'+name+'"') in source or ("'"+name+"'") in source,(name,"missing registry")
+          print("CORE_CLASSES 16/16 PASS")
+          PY
